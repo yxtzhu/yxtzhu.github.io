@@ -1,7 +1,6 @@
 # Site settings
-title: A blog about lorem ipsum dolor sit amet
-description: Hi, I’m Tingting. I like to solve interesting problems with passionate people, and I see life as a diversified portfolio, with every and each new experience as an invaluable asset. 
-# baseurl: "/particle" # the subpath of your site, e.g. /blog
+title: Tingting Zhu 
+description: Personal Site
 url: "yxtzhu.github.io" # the base hostname & protocol for your site e.g. http://willianjusten.com.br
 
 # User settings
