@@ -1,0 +1,126 @@
+<style>
+experience {
+    box-sizing: border-box;
+}
+
+
+/* The grid: Three equal columns that floats next to each other */
+.column {
+    float: left ;
+    width: 10%;
+    padding: 15px;
+    text-align: center;
+    font-size: 25px;
+    cursor: pointer;
+    color: black;
+}
+
+.containerTab {
+    padding: 10px;
+    color: white;
+}
+
+/* Clear floats after the columns */
+.row:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+/* Closable button inside the container tab */
+.closebtn {
+    float: right;
+    color: white;
+    font-size: 35px;
+    cursor: pointer;
+}
+</style>
+
+
+<div style="text-align:center">
+  <h1>My Experience</h1>
+</div>
+
+<!-- Three columns -->
+<div class="row" style="margin-left:155px;" >
+  <div class="column" onclick="openTab('b1');" style="background:clear;">
+    <img src="/assets/img/app-logo/Arendil.png" alt="arendil" width= "60%" height="60%" style="margin:10px;">
+  </div>
+  <div class="column" onclick="openTab('b2');" style="background:clear;">
+    <img src="/assets/img/app-logo/slf.png" alt="slf" width= "110%" height="110%" style="margin:10px;">
+  </div>
+  <div class="column" onclick="openTab('b3');" style="background:clear;">
+    <img src="/assets/img/app-logo/fb.png" alt="fb" style="width:70px;height:70px; margin:10px;">
+  </div>
+  <div class="column" onclick="openTab('b4');" style="background:clear;">
+    <img src="/assets/img/app-logo/uw.gif" alt="uw" width= "70%" height="70%" style="margin:10px;">
+  </div>
+  
+  <div class="column" onclick="openTab('b5');" style="background:clear;">
+    <img src="/assets/img/app-logo/ewb.png" alt="ewb" width= "110%" height="110%" style="margin:10px;">
+  </div>
+
+  <div class="column" onclick="openTab('b6');" style="background:clear;">
+    <img src="/assets/img/app-logo/rbc.png" alt="rbc" style="width:100px;height:100px; margin:10px;">
+  </div>
+
+  <div class="column" onclick="openTab('b7');" style="background:clear;">
+    <img src="/assets/img/app-logo/mlf.png" alt="mlf" width= "115%" height="115%" style="margin:10px;">
+  </div>
+</div>
+
+<!-- Full-width columns: (hidden by default) -->
+<div id="b1" class="containerTab" style="display:none;background:black; opacity: 0.9">
+  <span onclick="this.parentElement.style.display='none'" class="closebtn">&times;</span>
+  <h2>CO-FOUNDER</h2>
+  <p>Startup | Entrepreneurship | Data Analytics | Product Design | Product Management | Logo Design.</p>
+</div>
+
+<div id="b2" class="containerTab" style="display:none;background:black; opacity: 0.9">
+  <span onclick="this.parentElement.style.display='none'" class="closebtn">&times;</span>
+  <h2>ROTATIONAL LEADERSHIP DEVELOPMENT PROGRAM</h2>
+  <p>Lead process re-engineering project | Designed, automated and eliminated debunk roles | Designed tools endorsed by senior leaders and the CIO</p>
+</div>
+
+<div id="b3" class="containerTab" style="display:none;background:black; opacity: 0.9">
+  <span onclick="this.parentElement.style.display='none'" class="closebtn">&times;</span>
+  <h2>BI</h2>
+  <p>Growth hacking | Research and simplfy complex problems | Dashbaord design</p>
+</div>
+
+<div id="b4" class="containerTab" style="display:none;background:black; opacity: 0.9">
+  <span onclick="this.parentElement.style.display='none'" class="closebtn">&times;</span>
+  <h2>BACHELOR OF MATHEMATICS</h2>
+  <p>Honours Mathmatics/Financial Analysis & Risk Management | Joint Honours Combinatorics & Optimization | Co-op</p>
+</div>
+
+<div id="b5" class="containerTab" style="display:none;background:black; opacity: 0.9">
+  <span onclick="this.parentElement.style.display='none'" class="closebtn">&times;</span>
+  <h2>EXECUTIVE</h2>
+  <p>Obtained and solidified fundings | Communication with EWB National Office | Event planning</p>
+</div>
+
+<div id="b6" class="containerTab" style="display:none;background:black; opacity: 0.9">
+  <span onclick="this.parentElement.style.display='none'" class="closebtn">&times;</span>
+  <h2>CAPITAL MARKETS</h2>
+  <p>Managed PnL for the Equity Derivatives Trading books | Process automation</p>
+</div>
+
+<div id="b7" class="containerTab" style="display:none;background:black; opacity: 0.9">
+  <span onclick="this.parentElement.style.display='none'" class="closebtn">&times;</span>
+  <h2>ACTUARIAL ANALYST</h2>
+  <p>Stochastic and deterministic analysis on various scenario shocks on the yield curve | Spread risk | Interest rate risk | Earning sensitivity | Earning at Risk</p>
+</div>
+
+
+<script>
+function openTab(tabName) {
+  var i, x;
+  x = document.getElementsByClassName("containerTab");
+  for (i = 0; i < x.length; i++) {
+     x[i].style.display = "none";
+  }
+  document.getElementById(tabName).style.display = "block";
+}
+</script>
+
