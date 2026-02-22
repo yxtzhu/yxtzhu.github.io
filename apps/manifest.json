@@ -1,0 +1,25 @@
+{
+  "name": "App Launcher",
+  "short_name": "Apps",
+  "description": "Personal PWA app launcher",
+  "start_url": "/apps/",
+  "scope": "/apps/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
