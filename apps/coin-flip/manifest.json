@@ -1,0 +1,25 @@
+{
+  "name": "Coin Flip",
+  "short_name": "Coin Flip",
+  "description": "Flip a coin with satisfying 3D animation and suspense",
+  "start_url": "/apps/coin-flip/",
+  "scope": "/apps/coin-flip/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
