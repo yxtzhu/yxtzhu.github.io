@@ -259,7 +259,9 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
+      /* clip-path instead of overflow:hidden to avoid backface-visibility conflict in Safari */
+      clip-path: circle(50% at 50% 50%);
+      -webkit-clip-path: circle(50% at 50% 50%);
     }
 
     /* HEADS — warm bronze-gold */
@@ -722,10 +724,7 @@
       const savedRot = parseFloat(localStorage.getItem('coin-flip-rotation') || '0');
       if (!isNaN(savedRot)) currentRotation = savedRot;
       const savedResult = localStorage.getItem('coin-flip-last');
-      if (savedResult) {
-        lastResult = savedResult;
-        setCoinToResult(savedResult, false);
-      }
+      if (savedResult) lastResult = savedResult;
     } catch (_) {}
 
     // ─── DOM refs ─────────────────────────────────────────────────────────────
@@ -749,6 +748,7 @@
     updateStatsDisplay(false);
     updateStreakDisplay(false);
     if (lastResult) {
+      setCoinToResult(lastResult, false);
       resultLabel.textContent = lastResult === 'heads' ? 'Heads' : 'Tails';
       resultLabel.className = 'result-label visible ' + (lastResult === 'heads' ? 'heads-text' : 'tails-text');
     }
