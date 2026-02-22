@@ -631,7 +631,7 @@
         </svg>
         Apps
       </a>
-      <h1>古錢擲幣</h1>
+      <h1>Coin Flip</h1>
       <div class="header-right">
         <button class="reset-btn" id="reset-btn" aria-label="Reset stats">Reset</button>
       </div>
@@ -640,15 +640,15 @@
     <!-- Stats -->
     <div class="stats">
       <div class="stat-pill stat-heads">
-        <div class="stat-label">正面</div>
+        <div class="stat-label">Heads</div>
         <div class="stat-value" id="heads-count">0</div>
       </div>
       <div class="stat-pill" style="flex:0.6">
-        <div class="stat-label">總計</div>
+        <div class="stat-label">Total</div>
         <div class="stat-value" id="total-count">0</div>
       </div>
       <div class="stat-pill stat-tails">
-        <div class="stat-label">反面</div>
+        <div class="stat-label">Tails</div>
         <div class="stat-value" id="tails-count">0</div>
       </div>
     </div>
@@ -682,10 +682,10 @@
       </div>
       <div class="coin-shadow" id="coin-shadow"></div>
 
-      <div class="result-label" id="result-label">正面</div>
+      <div class="result-label" id="result-label">Heads</div>
 
       <div class="streak" id="streak">
-        <span class="streak-badge" id="streak-badge">3× 正面</span>
+        <span class="streak-badge" id="streak-badge">3× Heads</span>
       </div>
     </div>
 
@@ -694,7 +694,7 @@
       <button class="flip-btn" id="flip-btn" aria-label="Flip coin">
         <span class="btn-label" id="btn-label">
           <span class="btn-coin-icon">🪙</span>
-          <span>擲幣</span>
+          <span>Flip Coin</span>
         </span>
         <span class="suspense-dots" id="suspense-dots">
           <span class="dot"></span>
@@ -749,7 +749,7 @@
     updateStatsDisplay(false);
     updateStreakDisplay(false);
     if (lastResult) {
-      resultLabel.textContent = lastResult === 'heads' ? '正面' : '反面';
+      resultLabel.textContent = lastResult === 'heads' ? 'Heads' : 'Tails';
       resultLabel.className = 'result-label visible ' + (lastResult === 'heads' ? 'heads-text' : 'tails-text');
     }
 
@@ -762,7 +762,7 @@
 
       resultLabel.classList.remove('visible');
       setTimeout(() => {
-        resultLabel.textContent = result === 'heads' ? '正面' : '反面';
+        resultLabel.textContent = result === 'heads' ? 'Heads' : 'Tails';
         resultLabel.classList.remove('heads-text', 'tails-text');
       }, 200);
 
@@ -850,8 +850,8 @@
 
     function updateStreakDisplay(animate) {
       if (streak.count >= 2) {
-        const label = streak.side === 'heads' ? '正面' : '反面';
-        streakBadge.textContent = `${streak.count}× ${label} 連續`;
+        const label = streak.side === 'heads' ? 'Heads' : 'Tails';
+        streakBadge.textContent = `${streak.count}× ${label} in a row`;
         streakEl.classList.add('visible');
         if (animate) {
           streakEl.style.transform = 'scale(1.15)';
