@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Coin Flip">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#0a0603">
   <title>Coin Flip</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon.svg">
@@ -16,16 +16,17 @@
       --safe-bottom: env(safe-area-inset-bottom, 0px);
       --safe-left: env(safe-area-inset-left, 0px);
       --safe-right: env(safe-area-inset-right, 0px);
-      --gold-light: #ffd700;
-      --gold-mid: #c8a400;
-      --gold-dark: #8b6914;
-      --gold-shine: #fff5cc;
-      --accent: #f5c842;
-      --bg: #000000;
-      --surface: rgba(255, 255, 255, 0.06);
-      --border: rgba(255, 255, 255, 0.1);
-      --text: #ffffff;
-      --text-secondary: rgba(255, 255, 255, 0.5);
+      --bronze-light: #e8a855;
+      --bronze-mid: #cd7f32;
+      --bronze-dark: #7a4a15;
+      --bronze-shine: #f5d88a;
+      --patina: #5a9a6a;
+      --accent: #d4900a;
+      --bg: #0a0603;
+      --surface: rgba(205, 127, 50, 0.08);
+      --border: rgba(205, 127, 50, 0.2);
+      --text: #f5e8c8;
+      --text-secondary: rgba(245, 232, 200, 0.5);
     }
 
     * {
@@ -50,14 +51,13 @@
       overflow: hidden;
     }
 
-    /* Subtle ambient glow background */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
       background:
-        radial-gradient(ellipse at 50% 40%, rgba(245, 200, 66, 0.05) 0%, transparent 65%),
-        radial-gradient(ellipse at 20% 80%, rgba(94, 92, 230, 0.04) 0%, transparent 50%);
+        radial-gradient(ellipse at 50% 40%, rgba(205, 127, 50, 0.05) 0%, transparent 65%),
+        radial-gradient(ellipse at 20% 80%, rgba(90, 154, 106, 0.04) 0%, transparent 50%);
       pointer-events: none;
       z-index: 0;
       transition: opacity 0.8s ease;
@@ -65,14 +65,14 @@
 
     body.result-heads::before {
       background:
-        radial-gradient(ellipse at 50% 40%, rgba(245, 200, 66, 0.12) 0%, transparent 65%),
-        radial-gradient(ellipse at 80% 80%, rgba(245, 200, 66, 0.06) 0%, transparent 50%);
+        radial-gradient(ellipse at 50% 40%, rgba(212, 144, 10, 0.14) 0%, transparent 65%),
+        radial-gradient(ellipse at 80% 80%, rgba(212, 144, 10, 0.07) 0%, transparent 50%);
     }
 
     body.result-tails::before {
       background:
-        radial-gradient(ellipse at 50% 40%, rgba(94, 92, 230, 0.12) 0%, transparent 65%),
-        radial-gradient(ellipse at 20% 80%, rgba(94, 92, 230, 0.06) 0%, transparent 50%);
+        radial-gradient(ellipse at 50% 40%, rgba(90, 154, 106, 0.12) 0%, transparent 65%),
+        radial-gradient(ellipse at 20% 80%, rgba(90, 154, 106, 0.06) 0%, transparent 50%);
     }
 
     #app {
@@ -124,7 +124,27 @@
     }
 
     .header-right {
-      width: 60px; /* balance the back button */
+      width: 60px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* Reset button in header */
+    .reset-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 4px 0;
+      opacity: 0.8;
+      transition: opacity 0.15s;
+    }
+
+    .reset-btn:active {
+      opacity: 0.5;
     }
 
     /* Stats bar */
@@ -172,7 +192,7 @@
     }
 
     .stat-heads .stat-value { color: var(--accent); }
-    .stat-tails .stat-value { color: #a78bfa; }
+    .stat-tails .stat-value { color: var(--patina); }
 
     /* Coin stage */
     .coin-stage {
@@ -190,7 +210,7 @@
     .coin-shadow {
       width: 170px;
       height: 24px;
-      background: radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 70%);
+      background: radial-gradient(ellipse, rgba(0,0,0,0.6) 0%, transparent 70%);
       border-radius: 50%;
       margin-top: 8px;
       transition: transform 0.4s ease, opacity 0.4s ease;
@@ -219,13 +239,13 @@
       transform: scale(0.97);
     }
 
-    /* The coin itself spins around X axis */
+    /* The coin itself spins around Y axis */
     .coin {
       width: 100%;
       height: 100%;
       position: relative;
       transform-style: preserve-3d;
-      transition: none; /* controlled by JS */
+      transition: none;
       will-change: transform;
     }
 
@@ -242,103 +262,158 @@
       overflow: hidden;
     }
 
-    /* HEADS - gold */
+    /* HEADS — warm bronze-gold */
     .coin-heads {
-      background: radial-gradient(circle at 38% 35%,
-        #fff9d6 0%,
-        #f5c842 18%,
-        #d4a017 40%,
-        #a87820 65%,
-        #7a5510 100%
+      background: radial-gradient(circle at 35% 30%,
+        #f7e4a0 0%,
+        #e8a855 16%,
+        #cd7f32 40%,
+        #9a5a1a 65%,
+        #6b3d0e 100%
       );
       box-shadow:
-        inset 0 -4px 12px rgba(0,0,0,0.35),
-        inset 0 2px 8px rgba(255,255,200,0.25),
-        0 6px 30px rgba(0,0,0,0.7),
-        0 0 0 4px rgba(180,130,20,0.5),
-        0 0 0 6px rgba(245,200,66,0.15);
+        inset 0 -5px 14px rgba(0,0,0,0.45),
+        inset 0 3px 10px rgba(255,230,130,0.25),
+        0 6px 30px rgba(0,0,0,0.75),
+        0 0 0 5px rgba(155,95,15,0.55),
+        0 0 0 8px rgba(205,127,50,0.12);
     }
 
-    /* Rim ring on heads */
+    /* Outer raised rim */
     .coin-heads::before {
       content: '';
       position: absolute;
-      inset: 8px;
+      inset: 7px;
       border-radius: 50%;
-      border: 2px solid rgba(255,240,140,0.4);
-      box-shadow: inset 0 1px 4px rgba(0,0,0,0.3);
+      border: 2px solid rgba(255,220,100,0.32);
+      box-shadow:
+        inset 0 1px 4px rgba(0,0,0,0.45),
+        0 1px 2px rgba(255,230,150,0.18);
     }
 
-    /* Shine overlay on heads */
+    /* Specular shine */
     .coin-heads::after {
       content: '';
       position: absolute;
-      top: -30%;
-      left: -30%;
-      width: 80%;
-      height: 70%;
-      background: radial-gradient(ellipse, rgba(255,255,220,0.35) 0%, transparent 70%);
+      top: -25%;
+      left: -25%;
+      width: 70%;
+      height: 60%;
+      background: radial-gradient(ellipse, rgba(255,245,200,0.28) 0%, transparent 70%);
       border-radius: 50%;
-      transform: rotate(-20deg);
+      transform: rotate(-25deg);
       pointer-events: none;
     }
 
-    .heads-symbol {
-      font-size: 72px;
-      line-height: 1;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
-      user-select: none;
-      position: relative;
-      z-index: 1;
-    }
-
-    /* TAILS - silver-purple */
+    /* TAILS — green patina bronze */
     .coin-tails {
       transform: rotateY(180deg);
-      background: radial-gradient(circle at 38% 35%,
-        #e8e8ff 0%,
-        #b8b0e8 18%,
-        #8880c8 40%,
-        #6658a8 65%,
-        #4440808 100%
+      background: radial-gradient(circle at 35% 30%,
+        #c8e0c0 0%,
+        #7aaa88 18%,
+        #4a7c5a 38%,
+        #7a5a20 58%,
+        #5a3a0a 100%
       );
       box-shadow:
-        inset 0 -4px 12px rgba(0,0,0,0.35),
-        inset 0 2px 8px rgba(200,200,255,0.2),
-        0 6px 30px rgba(0,0,0,0.7),
-        0 0 0 4px rgba(120,110,180,0.5),
-        0 0 0 6px rgba(160,150,220,0.15);
+        inset 0 -5px 14px rgba(0,0,0,0.45),
+        inset 0 3px 10px rgba(180,220,180,0.15),
+        0 6px 30px rgba(0,0,0,0.75),
+        0 0 0 5px rgba(70,105,65,0.6),
+        0 0 0 8px rgba(90,154,106,0.12);
     }
 
     .coin-tails::before {
       content: '';
       position: absolute;
-      inset: 8px;
+      inset: 7px;
       border-radius: 50%;
-      border: 2px solid rgba(200,190,255,0.35);
-      box-shadow: inset 0 1px 4px rgba(0,0,0,0.3);
+      border: 2px solid rgba(180,220,160,0.28);
+      box-shadow:
+        inset 0 1px 4px rgba(0,0,0,0.45),
+        0 1px 2px rgba(200,240,200,0.12);
     }
 
     .coin-tails::after {
       content: '';
       position: absolute;
-      top: -30%;
-      left: -30%;
-      width: 80%;
-      height: 70%;
-      background: radial-gradient(ellipse, rgba(220,220,255,0.3) 0%, transparent 70%);
+      top: -25%;
+      left: -25%;
+      width: 70%;
+      height: 60%;
+      background: radial-gradient(ellipse, rgba(200,235,210,0.22) 0%, transparent 70%);
       border-radius: 50%;
-      transform: rotate(-20deg);
+      transform: rotate(-25deg);
       pointer-events: none;
     }
 
-    .tails-symbol {
-      font-size: 72px;
-      line-height: 1;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
-      user-select: none;
-      position: relative;
+    /* Chinese characters layout */
+    .coin-chars {
+      position: absolute;
+      inset: 0;
       z-index: 1;
+    }
+
+    .coin-char {
+      position: absolute;
+      font-family: 'STKaiti', 'KaiTi', 'Kaiti SC', 'SimKai', '楷体', 'STSong', 'SimSun', serif;
+      font-weight: 900;
+      font-size: 30px;
+      line-height: 1;
+      color: rgba(10, 4, 0, 0.8);
+      text-shadow:
+        0 1px 1px rgba(255,210,80,0.35),
+        0 -1px 0 rgba(0,0,0,0.55);
+      user-select: none;
+    }
+
+    .coin-char-top {
+      top: 12%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .coin-char-bottom {
+      bottom: 12%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .coin-char-left {
+      top: 50%;
+      left: 9%;
+      transform: translateY(-50%);
+    }
+
+    .coin-char-right {
+      top: 50%;
+      right: 9%;
+      transform: translateY(-50%);
+    }
+
+    /* Tails characters: green-tinted shadow */
+    .coin-tails .coin-char {
+      color: rgba(5, 10, 4, 0.82);
+      text-shadow:
+        0 1px 1px rgba(160,220,160,0.3),
+        0 -1px 0 rgba(0,0,0,0.55);
+    }
+
+    /* Square hole */
+    .coin-hole {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 26%;
+      height: 26%;
+      background: #040201;
+      border: 2px solid rgba(0,0,0,0.95);
+      box-shadow:
+        inset 0 2px 8px rgba(0,0,0,1),
+        inset 0 -1px 4px rgba(0,0,0,0.9),
+        0 0 0 1px rgba(80,50,10,0.35);
+      z-index: 2;
     }
 
     /* Result label */
@@ -364,12 +439,12 @@
 
     .result-label.heads-text {
       color: var(--accent);
-      text-shadow: 0 0 30px rgba(245,200,66,0.5);
+      text-shadow: 0 0 30px rgba(212,144,10,0.5);
     }
 
     .result-label.tails-text {
-      color: #a78bfa;
-      text-shadow: 0 0 30px rgba(167,139,250,0.5);
+      color: var(--patina);
+      text-shadow: 0 0 30px rgba(90,154,106,0.5);
     }
 
     /* Flip button */
@@ -388,11 +463,11 @@
       font-weight: 700;
       letter-spacing: -0.3px;
       cursor: pointer;
-      background: linear-gradient(135deg, #f5c842 0%, #d4940a 100%);
-      color: #1a0e00;
+      background: linear-gradient(135deg, #e8a855 0%, #a85e10 100%);
+      color: #1a0800;
       box-shadow:
-        0 4px 20px rgba(245, 200, 66, 0.3),
-        0 1px 0 rgba(255,255,255,0.2) inset;
+        0 4px 20px rgba(205, 127, 50, 0.3),
+        0 1px 0 rgba(255,200,100,0.2) inset;
       transition:
         transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
         box-shadow 0.12s ease,
@@ -407,14 +482,14 @@
       position: absolute;
       top: 0; left: 0; right: 0;
       height: 50%;
-      background: linear-gradient(to bottom, rgba(255,255,255,0.15), transparent);
+      background: linear-gradient(to bottom, rgba(255,220,120,0.18), transparent);
       border-radius: 16px 16px 0 0;
       pointer-events: none;
     }
 
     .flip-btn:not(:disabled):active {
       transform: scale(0.97) translateY(1px);
-      box-shadow: 0 2px 10px rgba(245, 200, 66, 0.2);
+      box-shadow: 0 2px 10px rgba(205, 127, 50, 0.2);
     }
 
     .flip-btn:disabled {
@@ -450,7 +525,7 @@
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: rgba(26, 14, 0, 0.6);
+      background: rgba(26, 8, 0, 0.6);
       animation: dot-bounce 0.9s ease-in-out infinite;
     }
 
@@ -513,7 +588,7 @@
     /* Coin shine sweep during flip */
     @keyframes coin-shimmer {
       0%   { opacity: 0; transform: translateX(-120%) rotate(20deg); }
-      40%  { opacity: 0.6; }
+      40%  { opacity: 0.55; }
       100% { opacity: 0; transform: translateX(220%) rotate(20deg); }
     }
 
@@ -523,9 +598,9 @@
       left: -10%;
       width: 40%;
       height: 120%;
-      background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.45) 50%, transparent 100%);
+      background: linear-gradient(100deg, transparent 0%, rgba(255,220,120,0.38) 50%, transparent 100%);
       pointer-events: none;
-      z-index: 2;
+      z-index: 3;
       border-radius: 50%;
       animation: coin-shimmer 0.6s ease-in-out infinite;
     }
@@ -534,13 +609,13 @@
     @media (min-height: 700px) {
       .coin-wrapper { width: 200px; height: 200px; }
       .coin-shadow { width: 190px; }
-      .heads-symbol, .tails-symbol { font-size: 80px; }
+      .coin-char { font-size: 34px; }
     }
 
     @media (max-height: 600px) {
       .coin-wrapper { width: 140px; height: 140px; }
       .coin-shadow { width: 130px; }
-      .heads-symbol, .tails-symbol { font-size: 56px; }
+      .coin-char { font-size: 22px; }
       .result-label { font-size: 26px; margin-top: 18px; }
     }
   </style>
@@ -557,7 +632,9 @@
         Apps
       </a>
       <h1>Coin Flip</h1>
-      <div class="header-right"></div>
+      <div class="header-right">
+        <button class="reset-btn" id="reset-btn" aria-label="Reset stats">Reset</button>
+      </div>
     </header>
 
     <!-- Stats -->
@@ -580,12 +657,26 @@
     <div class="coin-stage">
       <div class="coin-wrapper" id="coin-wrapper" role="button" aria-label="Flip coin" tabindex="0">
         <div class="coin" id="coin">
+          <!-- HEADS: 開元通寶 (Kaiyuan Tongbao — Tang Dynasty) -->
           <div class="coin-face coin-heads">
             <div class="shimmer" id="shimmer" style="display:none"></div>
-            <span class="heads-symbol">🦅</span>
+            <div class="coin-chars">
+              <span class="coin-char coin-char-top">開</span>
+              <span class="coin-char coin-char-right">通</span>
+              <span class="coin-char coin-char-bottom">元</span>
+              <span class="coin-char coin-char-left">寶</span>
+              <div class="coin-hole"></div>
+            </div>
           </div>
+          <!-- TAILS: 天下太平 (Peace Under Heaven) -->
           <div class="coin-face coin-tails">
-            <span class="tails-symbol">🌟</span>
+            <div class="coin-chars">
+              <span class="coin-char coin-char-top">天</span>
+              <span class="coin-char coin-char-right">太</span>
+              <span class="coin-char coin-char-bottom">下</span>
+              <span class="coin-char coin-char-left">平</span>
+              <div class="coin-hole"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -619,8 +710,8 @@
     let stats = { heads: 0, tails: 0 };
     let streak = { side: null, count: 0 };
     let isFlipping = false;
-    let currentRotation = 0; // cumulative Y rotation for coin
-    let lastResult = null;   // 'heads' | 'tails'
+    let currentRotation = 0;
+    let lastResult = null;
 
     // Load saved stats
     try {
@@ -652,6 +743,7 @@
     const tailsCount   = document.getElementById('tails-count');
     const totalCount   = document.getElementById('total-count');
     const particles    = document.getElementById('particles');
+    const resetBtn     = document.getElementById('reset-btn');
 
     // ─── Init display ─────────────────────────────────────────────────────────
     updateStatsDisplay(false);
@@ -666,85 +758,54 @@
       if (isFlipping) return;
       isFlipping = true;
 
-      // Decide outcome
       const result = Math.random() < 0.5 ? 'heads' : 'tails';
 
-      // Hide result label
       resultLabel.classList.remove('visible');
       setTimeout(() => {
         resultLabel.textContent = result === 'heads' ? 'Heads' : 'Tails';
         resultLabel.classList.remove('heads-text', 'tails-text');
       }, 200);
 
-      // Update button
       btnLabel.style.display = 'none';
       suspenseDots.classList.add('active');
       flipBtn.disabled = true;
 
-      // Shadow pulse
       coinShadow.classList.add('flipping');
-
-      // Shimmer effect
       shimmer.style.display = 'block';
 
-      // ── Animation timing ──────────────────────────────────────────────────
-      // Phase 1: fast multi-spin (suspense) ~1.4s
-      // Phase 2: slow final spin ~0.9s
-      // Total: ~2.3s
-
-      const extraSpins  = 4 + Math.floor(Math.random() * 3); // 4-6 full spins
+      const extraSpins  = 4 + Math.floor(Math.random() * 3);
       const spinDegrees = extraSpins * 360;
-
-      // Where should we land?
-      // heads = 0 (or 360n), tails = 180 (or 360n + 180)
-      // We'll always add full rotations + the landing offset
       const landingOffset = result === 'heads' ? 0 : 180;
-
-      // Compute next absolute rotation
-      // Start from currentRotation, add spins, then snap to correct face
       const baseTarget = currentRotation + spinDegrees;
-      // Round to nearest 360 then add landing
       const roundedBase = Math.ceil(baseTarget / 360) * 360;
       const finalRotation = roundedBase + landingOffset;
 
-      // Phase 1 — fast spin
       const phase1Target = currentRotation + spinDegrees * 0.7;
       coinEl.style.transition = `transform ${1.35}s cubic-bezier(0.2, 0.0, 0.6, 1.0)`;
       coinEl.style.transform = `rotateY(${phase1Target}deg)`;
 
-      // Body shimmer class
       document.body.classList.remove('result-heads', 'result-tails');
 
       setTimeout(() => {
-        // Phase 2 — decelerate to final
-        const remaining = finalRotation - phase1Target;
         coinEl.style.transition = `transform 0.95s cubic-bezier(0.16, 1, 0.3, 1)`;
         coinEl.style.transform = `rotateY(${finalRotation}deg)`;
         currentRotation = finalRotation;
 
         setTimeout(() => {
-          // Flip done
           isFlipping = false;
           shimmer.style.display = 'none';
           coinShadow.classList.remove('flipping');
 
-          // Update stats
           stats[result]++;
           lastResult = result;
           updateStreak(result);
           saveState();
           updateStatsDisplay(true, result);
 
-          // Show result label
           resultLabel.classList.add('visible', result === 'heads' ? 'heads-text' : 'tails-text');
-
-          // Ambient glow
           document.body.classList.add(result === 'heads' ? 'result-heads' : 'result-tails');
-
-          // Particle burst
           burstParticles(result);
 
-          // Re-enable button
           btnLabel.style.display = 'flex';
           suspenseDots.classList.remove('active');
           flipBtn.disabled = false;
@@ -790,7 +851,7 @@
     function updateStreakDisplay(animate) {
       if (streak.count >= 2) {
         const label = streak.side === 'heads' ? 'Heads' : 'Tails';
-        streakBadge.textContent = `${streak.count}\u00d7 ${label} in a row`;
+        streakBadge.textContent = `${streak.count}× ${label} in a row`;
         streakEl.classList.add('visible');
         if (animate) {
           streakEl.style.transform = 'scale(1.15)';
@@ -801,11 +862,24 @@
       }
     }
 
+    // ─── Reset ────────────────────────────────────────────────────────────────
+    function resetStats() {
+      if (isFlipping) return;
+      stats = { heads: 0, tails: 0 };
+      streak = { side: null, count: 0 };
+      lastResult = null;
+      saveState();
+      updateStatsDisplay(false);
+      updateStreakDisplay(false);
+      resultLabel.classList.remove('visible');
+      document.body.classList.remove('result-heads', 'result-tails');
+    }
+
     // ─── Particle burst ───────────────────────────────────────────────────────
     function burstParticles(result) {
       const colors = result === 'heads'
-        ? ['#ffd700', '#f5c842', '#ffe680', '#d4940a', '#fff2a0']
-        : ['#a78bfa', '#7c3aed', '#c4b5fd', '#6d28d9', '#ddd6fe'];
+        ? ['#e8a855', '#cd7f32', '#f5d88a', '#a85e10', '#f7e4a0']
+        : ['#7aaa88', '#4a7c5a', '#b8d4b0', '#5a9a6a', '#d0ead8'];
 
       const count = 22;
       const rect  = coinWrapper.getBoundingClientRect();
@@ -857,25 +931,7 @@
     coinWrapper.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); }
     });
-
-    // Long-press coin to reset stats
-    let pressTimer;
-    coinWrapper.addEventListener('pointerdown', () => {
-      pressTimer = setTimeout(() => {
-        if (!isFlipping) {
-          stats = { heads: 0, tails: 0 };
-          streak = { side: null, count: 0 };
-          lastResult = null;
-          saveState();
-          updateStatsDisplay(false);
-          updateStreakDisplay(false);
-          resultLabel.classList.remove('visible');
-          document.body.classList.remove('result-heads', 'result-tails');
-        }
-      }, 1200);
-    });
-    coinWrapper.addEventListener('pointerup', () => clearTimeout(pressTimer));
-    coinWrapper.addEventListener('pointerleave', () => clearTimeout(pressTimer));
+    resetBtn.addEventListener('click', resetStats);
 
     // Service worker
     if ('serviceWorker' in navigator) {
