@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="bgm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a1f14"/>
+      <stop offset="100%" stop-color="#1a1714"/>
+    </linearGradient>
+    <linearGradient id="flamem" x1="0%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#ff6b35"/>
+      <stop offset="100%" stop-color="#ffd200"/>
+    </linearGradient>
+  </defs>
+  <!-- Full bleed background (maskable icons need edge-to-edge fill) -->
+  <rect width="100" height="100" fill="url(#bgm)"/>
+  <!-- Dollar sign centred in safe zone -->
+  <text x="50" y="66" text-anchor="middle" font-size="52" font-family="'IBM Plex Mono', 'SF Mono', monospace" font-weight="600" fill="url(#flamem)">$</text>
+</svg>
