@@ -1,0 +1,25 @@
+{
+  "name": "Meeting Cost Calculator",
+  "short_name": "Meeting Cost",
+  "description": "Watch your meeting budget burn in real time",
+  "start_url": "/apps/meeting-cost-calculator/",
+  "scope": "/apps/meeting-cost-calculator/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1a1714",
+  "theme_color": "#1a1714",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

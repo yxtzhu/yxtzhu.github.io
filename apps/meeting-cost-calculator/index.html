@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Meeting Cost">
+  <meta name="theme-color" content="#1a1714">
+  <title>Meeting Cost Calculator</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html { height: 100%; background: #1a1714; }
+
+    body {
+      min-height: 100%;
+      min-height: 100dvh;
+      background: #1a1714;
+      color: #e8e4e0;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    #app {
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding-top: calc(var(--safe-top) + 20px);
+      padding-bottom: calc(var(--safe-bottom) + 40px);
+      padding-left: calc(var(--safe-left) + 20px);
+      padding-right: calc(var(--safe-right) + 20px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .inner {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    /* Back nav */
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #6b6560;
+      font-size: 0.8rem;
+      font-family: 'IBM Plex Mono', monospace;
+      text-decoration: none;
+      margin-bottom: 24px;
+      transition: color 0.2s;
+    }
+    .back-btn:hover { color: #e8e4e0; }
+
+    /* Header */
+    .header {
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    .header-label {
+      font-size: 0.7rem;
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #6b6560;
+      margin-bottom: 8px;
+    }
+    .header-sub {
+      font-size: 0.8rem;
+      color: #5a5550;
+      font-weight: 300;
+    }
+
+    /* Main display */
+    #main-display {
+      background: rgba(255,255,255,0.02);
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 36px 24px;
+      text-align: center;
+      margin-bottom: 24px;
+      transition: background 0.4s ease, border-color 0.4s ease;
+    }
+    #main-display.running {
+      background: rgba(255,107,53,0.04);
+      border-color: rgba(255,107,53,0.15);
+      animation: burnGlow 2s ease-in-out infinite;
+    }
+
+    #cost-display {
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 600;
+      color: #6b6560;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      transition: color 0.4s ease, text-shadow 0.3s ease;
+      font-variant-numeric: tabular-nums;
+    }
+    #cost-display.running {
+      color: #ff6b35;
+      text-shadow: 0 0 8px #ff6b35, 0 0 20px rgba(255,107,53,0.4);
+    }
+    #cost-display.has-cost { color: #e8e4e0; }
+
+    #timer-display {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.1rem;
+      color: #5a5550;
+      margin-top: 12px;
+      transition: color 0.4s ease;
+      font-variant-numeric: tabular-nums;
+    }
+    #timer-display.running { color: #8a7560; }
+
+    #burning-indicator {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 14px;
+      font-size: 0.7rem;
+      font-family: 'IBM Plex Mono', monospace;
+      color: #ff6b35;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    #burning-indicator.visible { display: flex; }
+    .burn-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ff6b35;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    /* Rate summary */
+    #rate-summary {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 28px;
+      font-size: 0.75rem;
+      font-family: 'IBM Plex Mono', monospace;
+      color: #6b6560;
+    }
+    .rate-val { color: #8a8580; }
+
+    /* Controls */
+    #controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    #start-btn {
+      flex: 1;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      font-size: 0.85rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+      background: #ff6b35;
+      color: #1a1714;
+      letter-spacing: 0.05em;
+    }
+    #start-btn.running {
+      background: rgba(255,107,53,0.15);
+      color: #ff6b35;
+    }
+    #reset-btn {
+      padding: 14px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.85rem;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      cursor: pointer;
+      background: transparent;
+      color: #8a8580;
+      transition: color 0.2s ease;
+    }
+    #reset-btn:hover { color: #e8e4e0; }
+
+    /* Attendees */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .section-label {
+      font-size: 0.7rem;
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #6b6560;
+    }
+    #presets-toggle {
+      background: transparent;
+      border: none;
+      color: #6b6560;
+      font-size: 0.7rem;
+      font-family: 'IBM Plex Mono', monospace;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.2s;
+    }
+    #presets-toggle:hover { color: #e8e4e0; }
+
+    #presets-panel {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+      animation: fadeSlideIn 0.2s ease forwards;
+    }
+    #presets-panel.visible { display: flex; }
+    .preset-btn {
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: #8a8580;
+      font-size: 0.7rem;
+      font-family: 'IBM Plex Mono', monospace;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .preset-btn:hover { border-color: rgba(255,107,53,0.3); color: #e8e4e0; }
+
+    #attendee-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .attendee-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+      animation: fadeSlideIn 0.3s ease forwards;
+    }
+
+    /* Stepper */
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .stepper-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #6b6560;
+      font-size: 0.75rem;
+      font-family: 'IBM Plex Mono', monospace;
+      cursor: pointer;
+      padding: 1px 6px;
+      line-height: 1.4;
+      transition: color 0.2s;
+    }
+    .stepper-btn:first-child { border-radius: 4px 0 0 4px; }
+    .stepper-btn:last-child { border-radius: 0 4px 4px 0; }
+    .stepper-btn:disabled { color: #3a3530; cursor: default; }
+    .stepper-btn:not(:disabled):hover { color: #e8e4e0; }
+    .stepper-count {
+      background: rgba(255,255,255,0.05);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      color: #e8e4e0;
+      font-size: 0.75rem;
+      font-family: 'IBM Plex Mono', monospace;
+      padding: 1px 6px;
+      min-width: 26px;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .attendee-name {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      color: #e8e4e0;
+      font-size: 0.85rem;
+      font-family: 'DM Sans', sans-serif;
+      width: 100%;
+      outline: none;
+      padding: 2px 0;
+    }
+    .attendee-name::placeholder { color: #5a5550; }
+
+    .mode-toggle {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #6b6560;
+      font-size: 0.6rem;
+      font-family: 'IBM Plex Mono', monospace;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 4px;
+      transition: color 0.2s;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .mode-toggle:hover { color: #e8e4e0; }
+
+    .rate-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .rate-symbol { color: #6b6560; font-size: 0.85rem; font-family: 'IBM Plex Mono', monospace; }
+    .rate-input {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      color: #e8e4e0;
+      font-size: 0.85rem;
+      font-family: 'IBM Plex Mono', monospace;
+      width: 55px;
+      outline: none;
+      padding: 2px 0;
+      text-align: right;
+    }
+    .rate-input.salary-mode { width: 75px; }
+    .rate-unit { color: #6b6560; font-size: 0.75rem; font-family: 'IBM Plex Mono', monospace; }
+
+    .remove-btn {
+      background: transparent;
+      border: none;
+      color: #5a5550;
+      cursor: pointer;
+      padding: 4px;
+      font-size: 1rem;
+      line-height: 1;
+      border-radius: 4px;
+      transition: color 0.2s;
+      flex-shrink: 0;
+    }
+    .remove-btn:hover { color: #ff6b35; }
+
+    #add-btn {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px dashed rgba(255,255,255,0.08);
+      background: transparent;
+      color: #5a5550;
+      font-size: 0.8rem;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    #add-btn:hover { border-color: rgba(255,107,53,0.3); color: #8a8580; }
+
+    /* Stats footer */
+    #stats-footer {
+      display: none;
+      margin-top: 32px;
+      padding: 20px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    #stats-footer.visible {
+      display: block;
+      animation: fadeSlideIn 0.4s ease forwards;
+    }
+    .stats-title {
+      font-size: 0.65rem;
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #6b6560;
+      margin-bottom: 14px;
+    }
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 8px;
+    }
+    .stats-key { color: #6b6560; }
+    .stats-val { font-family: 'IBM Plex Mono', monospace; color: #8a8580; }
+    .stats-val.accent { color: #ff6b35; }
+    .stats-quip {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 10px;
+      margin-top: 4px;
+      color: #5a5550;
+      font-size: 0.75rem;
+      font-style: italic;
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    @keyframes burnGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(255,107,53,0.15), inset 0 0 20px rgba(255,107,53,0.05); }
+      50% { box-shadow: 0 0 30px rgba(255,107,53,0.25), inset 0 0 30px rgba(255,107,53,0.08); }
+    }
+
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="inner">
+      <a href="../" class="back-btn">← Apps</a>
+
+      <div class="header">
+        <div class="header-label">Meeting Cost Calculator</div>
+        <div class="header-sub">Watch your budget burn in real time</div>
+      </div>
+
+      <div id="main-display">
+        <div id="cost-display">$0.00</div>
+        <div id="timer-display">00:00:00</div>
+        <div id="burning-indicator">
+          <span class="burn-dot"></span>BURNING
+        </div>
+      </div>
+
+      <div id="rate-summary">
+        <div><span class="rate-val" id="per-min-val">$0.00</span>/min</div>
+        <div><span class="rate-val" id="per-hr-val">$0.00</span>/hr</div>
+        <div><span class="rate-val" id="people-val">0</span>&nbsp;people</div>
+      </div>
+
+      <div id="controls">
+        <button id="start-btn">&#9654; START</button>
+      </div>
+
+      <div id="attendees-section">
+        <div class="section-header">
+          <div class="section-label">Attendees</div>
+          <button id="presets-toggle">PRESETS</button>
+        </div>
+        <div id="presets-panel"></div>
+        <div id="attendee-list"></div>
+        <button id="add-btn">+ Add Attendee</button>
+      </div>
+
+      <div id="stats-footer"></div>
+    </div>
+  </div>
+
+  <script>
+    // ─── Constants ───────────────────────────────────────────────────────────────
+    const HOURLY_PRESETS = [
+      { label: "Junior",    rate: 35,  salary: 70000  },
+      { label: "Mid-Level", rate: 65,  salary: 135000 },
+      { label: "Senior",    rate: 95,  salary: 195000 },
+      { label: "Manager",   rate: 120, salary: 250000 },
+      { label: "Director",  rate: 160, salary: 330000 },
+      { label: "VP / Exec", rate: 220, salary: 460000 },
+    ];
+    const HOURS_PER_YEAR = 40 * 52; // 2080
+
+    // ─── State ───────────────────────────────────────────────────────────────────
+    let attendees = [
+      { id: 1, name: "", rate: 65,  mode: "salary", salary: 135000, count: 2 },
+      { id: 2, name: "", rate: 95,  mode: "salary", salary: 195000, count: 1 },
+    ];
+    let running    = false;
+    let elapsedMs  = 0;
+    let showPresets = false;
+    let startTimeRef = null;
+    let animFrameRef = null;
+    let nextId = 3;
+
+    // ─── Utils ───────────────────────────────────────────────────────────────────
+    function salaryToHourly(s) { return s / HOURS_PER_YEAR; }
+    function hourlyToSalary(h) { return h * HOURS_PER_YEAR; }
+
+    function formatMoney(amount) {
+      if (amount < 1)    return "$" + amount.toFixed(3);
+      if (amount < 100)  return "$" + amount.toFixed(2);
+      if (amount >= 1000) return "$" + amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return "$" + amount.toFixed(2);
+    }
+
+    function formatTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+    }
+
+    function getEffectiveRate(a) {
+      if (a.mode === "salary") return salaryToHourly(parseFloat(a.salary) || 0);
+      return (a._effectiveRate !== undefined) ? a._effectiveRate : (parseFloat(a.rate) || 0);
+    }
+
+    function computeTotals() {
+      const totalPerSecond = attendees.reduce(function(sum, a) {
+        return sum + getEffectiveRate(a) * (a.count || 1) / 3600;
+      }, 0);
+      const elapsedSeconds = elapsedMs / 1000;
+      const totalCost      = totalPerSecond * elapsedSeconds;
+      const totalPeople    = attendees.reduce(function(sum, a) { return sum + (a.count || 1); }, 0);
+      const perMinute      = totalPerSecond * 60;
+      const perHour        = attendees.reduce(function(sum, a) {
+        return sum + getEffectiveRate(a) * (a.count || 1);
+      }, 0);
+      return { totalCost, elapsedSeconds, totalPeople, perMinute, perHour };
+    }
+
+    // ─── DOM refs ────────────────────────────────────────────────────────────────
+    var $mainDisplay     = document.getElementById('main-display');
+    var $costDisplay     = document.getElementById('cost-display');
+    var $timerDisplay    = document.getElementById('timer-display');
+    var $burningIndicator = document.getElementById('burning-indicator');
+    var $perMinVal       = document.getElementById('per-min-val');
+    var $perHrVal        = document.getElementById('per-hr-val');
+    var $peopleVal       = document.getElementById('people-val');
+    var $controls        = document.getElementById('controls');
+    var $startBtn        = document.getElementById('start-btn');
+    var $presetsToggle   = document.getElementById('presets-toggle');
+    var $presetsPanel    = document.getElementById('presets-panel');
+    var $attendeeList    = document.getElementById('attendee-list');
+    var $addBtn          = document.getElementById('add-btn');
+    var $statsFooter     = document.getElementById('stats-footer');
+
+    // ─── Display update (called every rAF tick while running, or on state change) ─
+    function updateDisplay() {
+      var t = computeTotals();
+
+      // Cost display
+      $costDisplay.textContent = formatMoney(t.totalCost);
+      if (running) {
+        $costDisplay.className = 'running';
+      } else if (t.totalCost > 0) {
+        $costDisplay.className = 'has-cost';
+      } else {
+        $costDisplay.className = '';
+      }
+
+      // Timer
+      $timerDisplay.textContent = formatTime(t.elapsedSeconds);
+      $timerDisplay.className = running ? 'running' : '';
+
+      // Burning indicator
+      $burningIndicator.className = running ? 'visible' : '';
+
+      // Main display border/glow
+      $mainDisplay.className = running ? 'running' : '';
+
+      // Rate summary
+      $perMinVal.textContent  = formatMoney(t.perMinute);
+      $perHrVal.textContent   = formatMoney(t.perHour);
+      $peopleVal.textContent  = t.totalPeople;
+
+      // Stats footer (shown when stopped and cost > 0)
+      if (t.totalCost > 0 && !running) {
+        var quip = t.totalCost < 5
+          ? "That was cheap. Could&#x27;ve been an email though."
+          : t.totalCost < 50
+          ? "Not bad. Hope it was productive!"
+          : t.totalCost < 200
+          ? "That&#x27;s a nice dinner for two. Was it worth it?"
+          : t.totalCost < 500
+          ? "That&#x27;s a plane ticket. Let that sink in."
+          : "Congratulations, you just burned serious cash. &#x1F525;";
+        var costPerPerson = t.totalPeople > 0
+          ? formatMoney(t.totalCost / t.totalPeople)
+          : "$0.00";
+        $statsFooter.innerHTML =
+          '<div class="stats-title">Meeting Summary</div>' +
+          '<div class="stats-row"><span class="stats-key">Duration</span><span class="stats-val">' + formatTime(t.elapsedSeconds) + '</span></div>' +
+          '<div class="stats-row"><span class="stats-key">Total Cost</span><span class="stats-val accent">' + formatMoney(t.totalCost) + '</span></div>' +
+          '<div class="stats-row"><span class="stats-key">Cost per Person</span><span class="stats-val">' + costPerPerson + '</span></div>' +
+          '<div class="stats-quip">' + quip + '</div>';
+        $statsFooter.className = 'visible';
+      } else {
+        $statsFooter.className = '';
+      }
+    }
+
+    // ─── Controls ────────────────────────────────────────────────────────────────
+    function updateControls() {
+      if (running) {
+        $startBtn.innerHTML = '&#9646;&#9646; PAUSE';
+        $startBtn.className = 'running';
+      } else if (elapsedMs > 0) {
+        $startBtn.innerHTML = '&#9654; RESUME';
+        $startBtn.className = '';
+      } else {
+        $startBtn.innerHTML = '&#9654; START';
+        $startBtn.className = '';
+      }
+
+      var existing = document.getElementById('reset-btn');
+      if (elapsedMs > 0 && !existing) {
+        var btn = document.createElement('button');
+        btn.id = 'reset-btn';
+        btn.textContent = 'RESET';
+        btn.addEventListener('click', reset);
+        $controls.appendChild(btn);
+      } else if (elapsedMs === 0 && existing) {
+        existing.remove();
+      }
+    }
+
+    // ─── Attendee rendering ──────────────────────────────────────────────────────
+    function renderAttendees() {
+      $attendeeList.innerHTML = '';
+      attendees.forEach(function(a) {
+        var isSalary     = a.mode === "salary";
+        var count        = a.count || 1;
+        var displayValue = isSalary ? (a.salary != null ? a.salary : '') : (a.rate != null ? a.rate : '');
+
+        var row = document.createElement('div');
+        row.className = 'attendee-row';
+        row.dataset.id = a.id;
+
+        row.innerHTML =
+          '<div class="stepper">' +
+            '<button class="stepper-btn dec-btn"' + (count <= 1 ? ' disabled' : '') + '>&#8722;</button>' +
+            '<div class="stepper-count">' + count + '&#215;</div>' +
+            '<button class="stepper-btn inc-btn">+</button>' +
+          '</div>' +
+          '<input type="text" class="attendee-name" placeholder="' + (count > 1 ? 'Role (optional)' : 'Name (optional)') + '">' +
+          '<button class="mode-toggle" title="' + (isSalary ? 'Switch to hourly rate' : 'Switch to annual salary') + '">' + (isSalary ? 'SAL' : 'HR') + '</button>' +
+          '<div class="rate-input-wrap">' +
+            '<span class="rate-symbol">$</span>' +
+            '<input type="number" class="rate-input' + (isSalary ? ' salary-mode' : '') + '">' +
+            '<span class="rate-unit">' + (isSalary ? '/yr' : '/hr') + '</span>' +
+          '</div>' +
+          '<button class="remove-btn" aria-label="Remove attendee">&#215;</button>';
+
+        // Set values directly (avoids HTML attribute escaping issues)
+        row.querySelector('.attendee-name').value = a.name || '';
+        row.querySelector('.rate-input').value    = displayValue;
+
+        // Stepper events
+        row.querySelector('.dec-btn').addEventListener('click', function() {
+          var cur = attendees.find(function(x) { return x.id === a.id; });
+          if (cur) updateAttendee(a.id, Object.assign({}, cur, { count: Math.max(1, (cur.count || 1) - 1) }));
+        });
+        row.querySelector('.inc-btn').addEventListener('click', function() {
+          var cur = attendees.find(function(x) { return x.id === a.id; });
+          if (cur) updateAttendee(a.id, Object.assign({}, cur, { count: (cur.count || 1) + 1 }));
+        });
+
+        // Name input — no re-render (keeps focus)
+        row.querySelector('.attendee-name').addEventListener('input', function(e) {
+          var cur = attendees.find(function(x) { return x.id === a.id; });
+          if (cur) updateAttendee(a.id, Object.assign({}, cur, { name: e.target.value }), false);
+        });
+
+        // Mode toggle
+        row.querySelector('.mode-toggle').addEventListener('click', function() {
+          var cur = attendees.find(function(x) { return x.id === a.id; });
+          if (!cur) return;
+          if (cur.mode === 'salary') {
+            updateAttendee(a.id, Object.assign({}, cur, { mode: 'hourly' }));
+          } else {
+            updateAttendee(a.id, Object.assign({}, cur, {
+              mode: 'salary',
+              salary: cur.salary || Math.round(hourlyToSalary(parseFloat(cur.rate) || 0)),
+            }));
+          }
+        });
+
+        // Rate input — no re-render (keeps focus)
+        row.querySelector('.rate-input').addEventListener('input', function(e) {
+          var raw = e.target.value;
+          var cur = attendees.find(function(x) { return x.id === a.id; });
+          if (!cur) return;
+          if (cur.mode === 'salary') {
+            var num = raw === '' ? 0 : Math.max(0, Number(raw));
+            updateAttendee(a.id, Object.assign({}, cur, { salary: raw, rate: salaryToHourly(num) }), false);
+          } else {
+            var num = raw === '' ? 0 : Math.max(0, Number(raw));
+            updateAttendee(a.id, Object.assign({}, cur, { rate: raw, _effectiveRate: num }), false);
+          }
+        });
+
+        // Remove
+        row.querySelector('.remove-btn').addEventListener('click', function() {
+          removeAttendee(a.id);
+        });
+
+        $attendeeList.appendChild(row);
+      });
+    }
+
+    // ─── State actions ───────────────────────────────────────────────────────────
+    function addAttendee(rate, salary) {
+      rate   = rate   !== undefined ? rate   : 65;
+      salary = salary !== undefined ? salary : 135000;
+      attendees.push({ id: nextId++, name: '', rate: rate, mode: 'salary', salary: salary, count: 1 });
+      renderAttendees();
+      updateDisplay();
+    }
+
+    function removeAttendee(id) {
+      attendees = attendees.filter(function(a) { return a.id !== id; });
+      renderAttendees();
+      updateDisplay();
+    }
+
+    // rerender = true means rebuild attendee DOM; false = just update state + display
+    function updateAttendee(id, updated, rerender) {
+      if (rerender === undefined) rerender = true;
+      attendees = attendees.map(function(a) {
+        return a.id === id ? Object.assign({}, a, updated) : a;
+      });
+      if (rerender) renderAttendees();
+      updateDisplay();
+    }
+
+    function reset() {
+      running = false;
+      elapsedMs = 0;
+      cancelAnimationFrame(animFrameRef);
+      updateDisplay();
+      updateControls();
+    }
+
+    // ─── Timer ───────────────────────────────────────────────────────────────────
+    function startTimer() {
+      startTimeRef = Date.now() - elapsedMs;
+      (function tick() {
+        elapsedMs = Date.now() - startTimeRef;
+        updateDisplay();
+        if (running) animFrameRef = requestAnimationFrame(tick);
+      })();
+    }
+
+    // ─── Event listeners ─────────────────────────────────────────────────────────
+    $startBtn.addEventListener('click', function() {
+      running = !running;
+      if (running) {
+        startTimer();
+      } else {
+        cancelAnimationFrame(animFrameRef);
+        updateDisplay();
+      }
+      updateControls();
+    });
+
+    $presetsToggle.addEventListener('click', function() {
+      showPresets = !showPresets;
+      if (showPresets) {
+        $presetsPanel.classList.add('visible');
+        $presetsToggle.textContent = 'HIDE';
+      } else {
+        $presetsPanel.classList.remove('visible');
+        $presetsToggle.textContent = 'PRESETS';
+      }
+    });
+
+    $addBtn.addEventListener('click', function() { addAttendee(); });
+
+    // Render preset buttons
+    HOURLY_PRESETS.forEach(function(p) {
+      var btn = document.createElement('button');
+      btn.className = 'preset-btn';
+      btn.textContent = p.label + ' \u00b7 $' + Math.round(p.salary / 1000) + 'k';
+      btn.addEventListener('click', function() { addAttendee(p.rate, p.salary); });
+      $presetsPanel.appendChild(btn);
+    });
+
+    // ─── Init ────────────────────────────────────────────────────────────────────
+    renderAttendees();
+    updateDisplay();
+    updateControls();
+
+    // ─── Service Worker ──────────────────────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./sw.js').catch(function() {});
+      });
+    }
+  </script>
+</body>
+</html>
