@@ -179,6 +179,8 @@ body {
   margin: 120px auto 60px;
   opacity: 0;
   transition: opacity 0.8s;
+  background: var(--paper);
+  border-radius: 4px;
 }
 .seal.visible { opacity: 0.55; }
 .seal:hover { opacity: 1; }
@@ -186,7 +188,6 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  mix-blend-mode: screen;
 }
 
 /* Side dots */
@@ -247,6 +248,20 @@ body {
   50% { transform: scaleY(1.4); opacity: 0.7; }
 }
 
+/* Particles */
+#particles-js {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Ensure content layers above particles */
+.breath { position: relative; z-index: 1; }
+
 @media (max-width: 640px) {
   .breath { padding: 60px 28px; }
   .side-progress { right: 12px; }
@@ -255,6 +270,8 @@ body {
 </style>
 </head>
 <body>
+
+<div id="particles-js"></div>
 
 <div class="scroll-cue" id="scrollCue">
   <div class="scroll-cue-line"></div>
@@ -514,6 +531,48 @@ setTimeout(() => {
     sections[0].init(() => {});
   }
 }, 400);
+</script>
+
+<script src="//cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+<script>
+particlesJS("particles-js", {
+  particles: {
+    number: { value: 40, density: { enable: true, value_area: 900 } },
+    color: { value: "#3a3a38" },
+    shape: { type: "circle" },
+    opacity: { value: 0.6, random: true, anim: { enable: false } },
+    size: { value: 2, random: true, anim: { enable: false } },
+    line_linked: {
+      enable: true,
+      distance: 160,
+      color: "#3a3a38",
+      opacity: 0.35,
+      width: 1
+    },
+    move: {
+      enable: true,
+      speed: 1.2,
+      direction: "none",
+      random: true,
+      straight: false,
+      out_mode: "out",
+      bounce: false
+    }
+  },
+  interactivity: {
+    detect_on: "window",
+    events: {
+      onhover: { enable: true, mode: "grab" },
+      onclick: { enable: true, mode: "push" },
+      resize: true
+    },
+    modes: {
+      grab: { distance: 180, line_linked: { opacity: 0.6 } },
+      push: { particles_nb: 3 }
+    }
+  },
+  retina_detect: true
+});
 </script>
 
 </body>
