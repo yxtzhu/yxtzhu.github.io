@@ -558,7 +558,7 @@ particlesJS("particles-js", {
     }
   },
   interactivity: {
-    detect_on: "window",
+    detect_on: "canvas",
     events: {
       onhover: { enable: true, mode: "grab" },
       onclick: { enable: true, mode: "push" },
@@ -571,6 +571,30 @@ particlesJS("particles-js", {
   },
   retina_detect: true
 });
+
+/* Forward document-level mouse events to the particles canvas so that
+   hover (grab) and click (push) interactions work even though the canvas
+   sits behind page content at a lower z-index. dispatchEvent bypasses
+   CSS pointer-events / z-index hit-testing. */
+(function () {
+  var canvas = document.querySelector('#particles-js canvas');
+  if (!canvas) return;
+  document.addEventListener('mousemove', function (e) {
+    canvas.dispatchEvent(new MouseEvent('mousemove', {
+      clientX: e.clientX,
+      clientY: e.clientY
+    }));
+  });
+  document.addEventListener('click', function (e) {
+    canvas.dispatchEvent(new MouseEvent('click', {
+      clientX: e.clientX,
+      clientY: e.clientY
+    }));
+  });
+  document.documentElement.addEventListener('mouseleave', function () {
+    canvas.dispatchEvent(new MouseEvent('mouseleave', {}));
+  });
+}());
 </script>
 
 </body>
