@@ -1,0 +1,25 @@
+{
+  "name": "Life Perspective",
+  "short_name": "Life",
+  "description": "A quiet reflection on the time you have — counted in meals, shaped by choices",
+  "start_url": "/apps/life-perspective/",
+  "scope": "/apps/life-perspective/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1c1a17",
+  "theme_color": "#1c1a17",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <rect width="120" height="120" rx="26" fill="#1c1a17"/>
+  <!-- Hourglass body -->
+  <path d="M36 22 L84 22 L84 26 L66 48 L66 72 L84 94 L84 98 L36 98 L36 94 L54 72 L54 48 L36 26 Z"
+        fill="none" stroke="#c4956a" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Sand top (lived) -->
+  <path d="M40 26 L80 26 L63 47 L57 47 Z" fill="#5a5248" opacity="0.9"/>
+  <!-- Sand bottom (remaining) -->
+  <path d="M57 73 L63 73 L78 94 L42 94 Z" fill="#c4956a" opacity="0.7"/>
+  <!-- Accent dot in the middle -->
+  <circle cx="60" cy="60" r="2.5" fill="#c4956a"/>
+</svg>
