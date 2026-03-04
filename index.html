@@ -265,6 +265,189 @@ body {
   .side-progress { right: 12px; }
   .contact-secondary { flex-direction: column; align-items: center; gap: 16px; }
 }
+
+/* ─── Pottery Gallery ─── */
+.gallery-section {
+  display: block;
+  min-height: unset;
+  padding: 0 0 64px;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.9s cubic-bezier(0.16,1,0.3,1), transform 0.9s cubic-bezier(0.16,1,0.3,1);
+}
+.gallery-section.gallery-visible { opacity: 1; transform: translateY(0); }
+
+.gallery-hdr {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 72px 48px 20px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.gallery-hdr h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.gallery-hdr h3 em { font-style: italic; color: var(--accent); font-weight: 400; }
+
+.gallery-ctrls { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.g-piece-counter {
+  font-size: 0.78rem;
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  min-width: 52px;
+  text-align: right;
+}
+.gallery-btn {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-ghost);
+  background: transparent;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.3s ease;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+.gallery-btn:hover { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+.gallery-btn:disabled { opacity: 0.2; cursor: default; pointer-events: none; }
+.gallery-btn svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.gallery-prog { max-width: 1200px; margin: 0 auto; padding: 0 48px; }
+.gallery-prog-bg { width: 100%; height: 1px; background: var(--ink-ghost); border-radius: 1px; overflow: hidden; }
+.gallery-prog-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.4s ease; }
+
+.gallery-scroll-wrap {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 12px 0 0;
+}
+.gallery-scroll-wrap::-webkit-scrollbar { display: none; }
+
+.gallery-track {
+  display: flex;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.gallery-track.is-dragging { cursor: grabbing; }
+
+.gallery-card {
+  flex: 0 0 100vw;
+  width: 100vw;
+  height: 76vh;
+  overflow: hidden;
+  position: relative;
+  background: #212120;
+  scroll-snap-align: start;
+}
+.gallery-card img { width: 100%; height: 100%; display: block; transition: transform 0.8s ease; }
+.gallery-card:hover img { transform: scale(1.012); }
+.gallery-card img.g-cover { object-fit: cover; }
+.gallery-card img.g-contain { object-fit: contain; background: #1c1c1b; }
+
+.gallery-card-info {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 100px 48px 36px;
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.35) 55%, transparent 100%);
+  pointer-events: none;
+}
+.gallery-card-info .g-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 400; font-size: 1.9rem;
+  color: #fff; line-height: 1.2; margin-bottom: 5px;
+}
+.gallery-card-info .g-material {
+  font-size: 0.75rem; font-weight: 300;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+
+.gallery-end-card {
+  flex: 0 0 100vw; width: 100vw; height: 76vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  background: var(--paper);
+  scroll-snap-align: start;
+}
+.gallery-end-orn { width: 36px; height: 1px; background: var(--ink-ghost); }
+.gallery-end-card p {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300; font-size: clamp(1.4rem, 2.5vw, 2rem);
+  color: var(--ink-faint); letter-spacing: -0.01em;
+}
+.gallery-end-card p em { font-style: italic; color: var(--ink-soft); }
+
+/* Pottery Lightbox */
+.g-lightbox {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(8,8,8,0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+.g-lightbox.active { opacity: 1; pointer-events: all; }
+.g-lb-content {
+  max-width: 90vw; max-height: 90vh;
+  transform: scale(0.93) translateY(10px);
+  transition: transform 0.4s ease;
+  text-align: center;
+}
+.g-lightbox.active .g-lb-content { transform: scale(1) translateY(0); }
+.g-lb-content img { max-width: 90vw; max-height: 74vh; object-fit: contain; display: block; margin: 0 auto; }
+.g-lb-info { margin-top: 16px; }
+.g-lb-info .g-title { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-size: 1.45rem; color: var(--ink); margin-bottom: 4px; }
+.g-lb-info .g-material { font-size: 0.7rem; font-weight: 300; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-faint); }
+.g-lb-close {
+  position: fixed; top: 24px; right: 24px;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--ink-ghost); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--ink-soft); transition: all 0.3s ease; z-index: 1001;
+}
+.g-lb-close:hover { border-color: var(--ink-soft); background: rgba(255,255,255,0.06); }
+.g-lb-close svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; }
+.g-lb-nav {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--ink-ghost); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--ink-soft); transition: all 0.3s ease; z-index: 1001;
+}
+.g-lb-nav:hover { border-color: var(--ink-soft); background: rgba(255,255,255,0.06); }
+.g-lb-nav.prev { left: 20px; }
+.g-lb-nav.next { right: 20px; }
+.g-lb-nav svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+@media (max-width: 768px) {
+  .gallery-hdr { padding: 52px 24px 16px; }
+  .gallery-prog { padding: 0 24px; }
+  .gallery-card-info { padding: 80px 24px 28px; }
+  .gallery-card-info .g-title { font-size: 1.45rem; }
+  .gallery-card, .gallery-end-card { height: 65vh; }
+}
+@media (max-width: 480px) {
+  .gallery-hdr { flex-direction: column; align-items: flex-start; gap: 12px; padding: 40px 20px 12px; }
+  .gallery-ctrls { align-self: stretch; justify-content: space-between; }
+  .gallery-prog { padding: 0 20px; }
+  .gallery-card-info { padding: 60px 20px 24px; }
+  .gallery-card-info .g-title { font-size: 1.25rem; }
+  .gallery-card, .gallery-end-card { height: 55vh; }
+}
 </style>
 </head>
 <body>
@@ -276,7 +459,7 @@ body {
 </div>
 
 <div class="side-progress" id="sideDots"></div>
-<div class="page-counter" id="pageCounter">01 / 06</div>
+<div class="page-counter" id="pageCounter">01 / 07</div>
 
 <!-- 1: Name -->
 <section class="breath" data-section="0">
@@ -318,8 +501,50 @@ body {
   </div>
 </section>
 
+<!-- 5: Gallery -->
+<section class="breath gallery-section" data-section="5">
+  <div class="gallery-hdr">
+    <h3>Selected <em>Works</em></h3>
+    <div class="gallery-ctrls">
+      <span class="g-piece-counter" id="gCounter">1 / 6</span>
+      <button class="gallery-btn" id="gPrev" aria-label="Previous piece">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="gallery-btn" id="gNext" aria-label="Next piece">
+        <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="gallery-prog">
+    <div class="gallery-prog-bg"><div class="gallery-prog-fill" id="gProgFill"></div></div>
+  </div>
+  <div class="gallery-scroll-wrap" id="gScrollWrap">
+    <div class="gallery-track" id="gTrack"></div>
+  </div>
+</section>
+
+<!-- Pottery Lightbox -->
+<div class="g-lightbox" id="gLightbox">
+  <button class="g-lb-close" id="gLbClose" aria-label="Close">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <button class="g-lb-nav prev" id="gLbPrev" aria-label="Previous">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <button class="g-lb-nav next" id="gLbNext" aria-label="Next">
+    <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+  </button>
+  <div class="g-lb-content">
+    <img id="gLbImg" src="" alt="">
+    <div class="g-lb-info">
+      <div class="g-title" id="gLbTitle"></div>
+      <div class="g-material" id="gLbMaterial"></div>
+    </div>
+  </div>
+</div>
+
 <!-- 6: Contact -->
-<section class="breath" data-section="5">
+<section class="breath" data-section="6">
   <div class="breath-content" style="text-align:center;">
     <h2 class="contact-heading" id="contactHeading"></h2>
     <div class="contact-secondary" id="contactLinks">
@@ -445,7 +670,14 @@ const sections = [
       typeProject('pNum2', '002', 'pName2', 'Kiln', 'pType2', '—', done);
     }
   },
-  // 5: Contact
+  // 5: Gallery
+  {
+    init: (done) => {
+      document.querySelector('.gallery-section').classList.add('gallery-visible');
+      done();
+    }
+  },
+  // 6: Contact
   {
     init: (done) => {
       const typer = new Typewriter(document.getElementById('contactHeading'), {
@@ -529,6 +761,153 @@ setTimeout(() => {
     sections[0].init(() => {});
   }
 }, 400);
+</script>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// POTTERY GALLERY — edit this array to add or remove pieces
+//
+//   1. Drop your photo files into the /pottery/ folder in this repo
+//   2. Add a new entry to the array below:
+//      { title: 'Piece name', material: 'Clay type, glaze', img: 'pottery/filename.jpg' }
+//   3. Delete an entry to remove it from the gallery
+//
+// The image will auto-detect portrait vs. landscape — no extra config needed.
+// ─────────────────────────────────────────────────────────────────────────────
+const galleryPieces = [
+  // Replace these placeholder images with your own (e.g. 'pottery/vase-01.jpg')
+  { title: 'Quiet Morning',     material: 'Stoneware, ash glaze',        img: 'https://picsum.photos/seed/pot1/600/800' },
+  { title: 'River Stone Bowl',  material: 'Porcelain, celadon glaze',    img: 'https://picsum.photos/seed/pot2/900/600' },
+  { title: 'Whispered Earth',   material: 'Red clay, unglazed',          img: 'https://picsum.photos/seed/pot3/600/750' },
+  { title: 'Tidal Pool',        material: 'Stoneware, copper carbonate', img: 'https://picsum.photos/seed/pot4/800/600' },
+  { title: 'Winter Kiln No. 3', material: 'Wood-fired stoneware',        img: 'https://picsum.photos/seed/pot5/650/650' },
+  { title: 'Still Water',       material: 'Porcelain, tenmoku glaze',    img: 'https://picsum.photos/seed/pot8/620/780' },
+];
+
+(function () {
+  const gTrack    = document.getElementById('gTrack');
+  const gWrap     = document.getElementById('gScrollWrap');
+  const gCounter  = document.getElementById('gCounter');
+  const gProgFill = document.getElementById('gProgFill');
+  const gPrev     = document.getElementById('gPrev');
+  const gNext     = document.getElementById('gNext');
+  const gLightbox = document.getElementById('gLightbox');
+  const gLbImg    = document.getElementById('gLbImg');
+  const gLbTitle  = document.getElementById('gLbTitle');
+  const gLbMat    = document.getElementById('gLbMaterial');
+
+  const total = galleryPieces.length;
+  let current = 0;
+  let lbIndex = -1;
+
+  // Build cards
+  galleryPieces.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'gallery-card';
+    card.innerHTML = `
+      <img src="${p.img}" alt="${p.title}" class="g-cover" loading="lazy">
+      <div class="gallery-card-info">
+        <div class="g-title">${p.title}</div>
+        <div class="g-material">${p.material}</div>
+      </div>`;
+    const img = card.querySelector('img');
+    img.addEventListener('load', function () {
+      this.className = this.naturalWidth > this.naturalHeight * 1.15 ? 'g-contain' : 'g-cover';
+    });
+    card.addEventListener('click', () => { if (!gWasDragged) openLb(i); });
+    gTrack.appendChild(card);
+  });
+
+  // End card
+  const endCard = document.createElement('div');
+  endCard.className = 'gallery-end-card';
+  endCard.innerHTML = '<div class="gallery-end-orn"></div><p>made with <em>intention</em></p>';
+  gTrack.appendChild(endCard);
+
+  gCounter.textContent = `1\u2009/\u2009${total}`;
+
+  // Scroll & progress
+  function gUpdateUI() {
+    const maxScroll = gWrap.scrollWidth - gWrap.clientWidth;
+    const sl = gWrap.scrollLeft;
+    gProgFill.style.width = (maxScroll > 0 ? Math.min(sl / maxScroll, 1) * 100 : 0) + '%';
+    current = Math.max(0, Math.min(Math.round(sl / window.innerWidth), total - 1));
+    gCounter.textContent = `${current + 1}\u2009/\u2009${total}`;
+    gPrev.disabled = sl <= 2;
+    gNext.disabled = sl >= maxScroll - 2;
+  }
+  gWrap.addEventListener('scroll', gUpdateUI, { passive: true });
+  window.addEventListener('resize', gUpdateUI);
+
+  function gScrollTo(idx) {
+    gWrap.scrollTo({ left: idx * window.innerWidth, behavior: 'smooth' });
+  }
+  gPrev.addEventListener('click', () => gScrollTo(Math.max(0, current - 1)));
+  gNext.addEventListener('click', () => gScrollTo(Math.min(total, current + 1)));
+
+  // Drag to scroll
+  let gDragging = false, gWasDragged = false, gStartX = 0, gScrollStart = 0;
+  const DRAG_THRESH = 8;
+  gTrack.addEventListener('mousedown', e => {
+    gDragging = true; gWasDragged = false;
+    gStartX = e.pageX; gScrollStart = gWrap.scrollLeft;
+    gTrack.classList.add('is-dragging');
+    gWrap.style.scrollSnapType = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!gDragging) return;
+    if (Math.abs(e.pageX - gStartX) > DRAG_THRESH) gWasDragged = true;
+    gWrap.scrollLeft = gScrollStart - (e.pageX - gStartX);
+  });
+  document.addEventListener('mouseup', () => {
+    if (!gDragging) return;
+    gDragging = false;
+    gTrack.classList.remove('is-dragging');
+    gWrap.style.scrollSnapType = 'x mandatory';
+    setTimeout(() => { gWasDragged = false; }, 20);
+  });
+
+  // Touch
+  let gTouchX = 0;
+  gTrack.addEventListener('touchstart', e => { gTouchX = e.touches[0].pageX; gWasDragged = false; }, { passive: true });
+  gTrack.addEventListener('touchmove', e => { if (Math.abs(e.touches[0].pageX - gTouchX) > DRAG_THRESH) gWasDragged = true; }, { passive: true });
+  gTrack.addEventListener('touchend', () => { setTimeout(() => { gWasDragged = false; }, 20); });
+
+  // Lightbox
+  function openLb(i) {
+    lbIndex = i;
+    const p = galleryPieces[i];
+    gLbImg.src = p.img; gLbImg.alt = p.title;
+    gLbTitle.textContent = p.title;
+    gLbMat.textContent = p.material;
+    gLightbox.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLb() {
+    gLightbox.classList.remove('active');
+    document.body.style.overflow = '';
+    lbIndex = -1;
+  }
+  function navigateLb(dir) {
+    const n = lbIndex + dir;
+    if (n >= 0 && n < total) openLb(n);
+  }
+
+  document.getElementById('gLbClose').addEventListener('click', closeLb);
+  document.getElementById('gLbPrev').addEventListener('click', () => navigateLb(-1));
+  document.getElementById('gLbNext').addEventListener('click', () => navigateLb(1));
+  gLightbox.addEventListener('click', e => { if (e.target === gLightbox) closeLb(); });
+
+  document.addEventListener('keydown', e => {
+    if (!gLightbox.classList.contains('active')) return;
+    if (e.key === 'Escape') closeLb();
+    if (e.key === 'ArrowLeft') navigateLb(-1);
+    if (e.key === 'ArrowRight') navigateLb(1);
+  });
+
+  gUpdateUI();
+}());
 </script>
 
 <script src="//cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
