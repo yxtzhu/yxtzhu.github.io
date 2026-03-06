@@ -493,17 +493,13 @@ body {
   </div>
 </section>
 
-<!-- 5: Project 2 -->
-<section class="breath" data-section="4">
+<!-- 4: Project 2 + Gallery -->
+<section class="breath gallery-section" data-section="4">
   <div class="breath-content" style="text-align:center;">
     <div class="project-number" id="pNum2"></div>
     <h2 class="project-name" id="pName2"></h2>
     <p class="project-type" id="pType2"></p>
   </div>
-</section>
-
-<!-- 5: Gallery -->
-<section class="breath gallery-section" data-section="5">
   <div class="gallery-hdr">
     <h3>Selected <span>Works</span></h3>
     <div class="gallery-ctrls">
@@ -544,8 +540,8 @@ body {
   </div>
 </div>
 
-<!-- 6: Contact -->
-<section class="breath" data-section="6">
+<!-- 5: Contact -->
+<section class="breath" data-section="5">
   <div class="breath-content" style="text-align:center;">
     <h2 class="contact-heading" id="contactHeading"></h2>
     <div class="contact-secondary" id="contactLinks">
@@ -665,20 +661,14 @@ const sections = [
       typeProject('pNum1', '001', 'pName1', 'Web Apps', 'pType1', '—', done);
     }
   },
-  // 4: Project 2
-  {
-    init: (done) => {
-      typeProject('pNum2', '002', 'pName2', 'Kiln', 'pType2', '—', done);
-    }
-  },
-  // 5: Gallery
+  // 4: Project 2 + Gallery
   {
     init: (done) => {
       document.querySelector('.gallery-section').classList.add('gallery-visible');
-      done();
+      typeProject('pNum2', '002', 'pName2', 'Kiln', 'pType2', '—', done);
     }
   },
-  // 6: Contact
+  // 5: Contact
   {
     init: (done) => {
       const typer = new Typewriter(document.getElementById('contactHeading'), {
