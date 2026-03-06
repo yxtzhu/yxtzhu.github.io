@@ -280,20 +280,21 @@ body {
 .gallery-hdr {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 72px 48px 20px;
+  padding: 20px 48px 20px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 24px;
 }
 .gallery-hdr h3 {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 300;
-  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
-  letter-spacing: -0.02em;
-  color: var(--ink);
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
-.gallery-hdr h3 em { font-style: italic; color: var(--accent); font-weight: 400; }
+.gallery-hdr h3 em { font-style: normal; color: var(--ink-faint); font-weight: 300; }
 
 .gallery-ctrls { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
 .g-piece-counter {
@@ -434,14 +435,14 @@ body {
 .g-lb-nav svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 @media (max-width: 768px) {
-  .gallery-hdr { padding: 52px 24px 16px; }
+  .gallery-hdr { padding: 16px 24px 16px; }
   .gallery-prog { padding: 0 24px; }
   .gallery-card-info { padding: 80px 24px 28px; }
   .gallery-card-info .g-title { font-size: 1.45rem; }
   .gallery-card, .gallery-end-card { height: 65vh; }
 }
 @media (max-width: 480px) {
-  .gallery-hdr { flex-direction: column; align-items: flex-start; gap: 12px; padding: 40px 20px 12px; }
+  .gallery-hdr { flex-direction: column; align-items: flex-start; gap: 12px; padding: 14px 20px 12px; }
   .gallery-ctrls { align-self: stretch; justify-content: space-between; }
   .gallery-prog { padding: 0 20px; }
   .gallery-card-info { padding: 60px 20px 24px; }
