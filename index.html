@@ -280,7 +280,7 @@ body {
 .gallery-hdr {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px 48px 20px;
+  padding: 20px 48px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -294,7 +294,7 @@ body {
   text-transform: uppercase;
   color: var(--ink-faint);
 }
-.gallery-hdr h3 em { font-style: normal; color: var(--ink-faint); font-weight: 300; }
+
 
 .gallery-ctrls { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
 .g-piece-counter {
@@ -435,7 +435,7 @@ body {
 .g-lb-nav svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 @media (max-width: 768px) {
-  .gallery-hdr { padding: 16px 24px 16px; }
+  .gallery-hdr { padding: 16px 24px; }
   .gallery-prog { padding: 0 24px; }
   .gallery-card-info { padding: 80px 24px 28px; }
   .gallery-card-info .g-title { font-size: 1.45rem; }
@@ -505,7 +505,7 @@ body {
 <!-- 5: Gallery -->
 <section class="breath gallery-section" data-section="5">
   <div class="gallery-hdr">
-    <h3>Selected <em>Works</em></h3>
+    <h3>Selected <span>Works</span></h3>
     <div class="gallery-ctrls">
       <span class="g-piece-counter" id="gCounter">1 / 6</span>
       <button class="gallery-btn" id="gPrev" aria-label="Previous piece">
