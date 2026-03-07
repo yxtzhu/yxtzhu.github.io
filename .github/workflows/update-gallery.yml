@@ -3,7 +3,7 @@ name: Update Gallery
 # Triggers when image files are added/removed/renamed in /pottery/
 on:
   push:
-    branches: [main, master]
+    branches: [master]
     paths:
       - 'pottery/**'
 
