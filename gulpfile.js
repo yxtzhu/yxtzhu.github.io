@@ -10,6 +10,8 @@ var browserSync = require('browser-sync');
 
 var jekyllCommand = (/^win/.test(process.platform)) ? 'jekyll.bat' : 'jekyll';
 
+var imageminOpts = { optimizationLevel: 3, progressive: true, interlaced: true };
+
 /*
  * Build the Jekyll Site
  * runs a child process in node that runs the jekyll commands
@@ -63,8 +65,18 @@ gulp.task('fonts', function() {
 gulp.task('imagemin', function() {
 	return gulp.src('src/img/**/*.{jpg,png,gif}')
 		.pipe(plumber())
-		.pipe(imagemin({ optimizationLevel: 3, progressive: true, interlaced: true }))
+		.pipe(imagemin(imageminOpts))
 		.pipe(gulp.dest('assets/img/'));
+});
+
+/*
+ * Optimize pottery gallery images in-place
+ * Drop images into /pottery/ and run: gulp pottery
+ */
+gulp.task('pottery', function() {
+	return gulp.src('pottery/**/*.{jpg,jpeg,png,gif,webp}')
+		.pipe(imagemin(imageminOpts))
+		.pipe(gulp.dest('pottery/'));
 });
 
 /**
