@@ -67,6 +67,17 @@ gulp.task('imagemin', function() {
 		.pipe(gulp.dest('assets/img/'));
 });
 
+/*
+ * Optimize pottery gallery images in-place
+ * Drop images into /pottery/ and run: gulp pottery
+ */
+gulp.task('pottery', function() {
+	return gulp.src('pottery/**/*.{jpg,jpeg,png,gif,webp}')
+		.pipe(plumber())
+		.pipe(imagemin({ optimizationLevel: 3, progressive: true, interlaced: true }))
+		.pipe(gulp.dest('pottery/'));
+});
+
 /**
  * Compile and minify js
  */

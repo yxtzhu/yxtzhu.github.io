@@ -1,0 +1,42 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# POTTERY GALLERY — edit this file to add, remove, or reorder pieces
+#
+# To add a new piece:
+#   1. Drop the image file into the /pottery/ folder
+#   2. Add a new entry below:
+#        - title: Piece Name
+#          material: Clay type, glaze
+#          img: pottery/filename.jpg
+#
+# To remove a piece:
+#   - Delete its entry below
+#
+# To reorder:
+#   - Move entries up or down in this list
+#
+# The gallery auto-detects portrait vs. landscape — no extra config needed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+- title: Quiet Morning
+  material: Stoneware, ash glaze
+  img: https://picsum.photos/seed/pot1/600/800
+
+- title: River Stone Bowl
+  material: Porcelain, celadon glaze
+  img: https://picsum.photos/seed/pot2/900/600
+
+- title: Whispered Earth
+  material: Red clay, unglazed
+  img: https://picsum.photos/seed/pot3/600/750
+
+- title: Tidal Pool
+  material: Stoneware, copper carbonate
+  img: https://picsum.photos/seed/pot4/800/600
+
+- title: Winter Kiln No. 3
+  material: Wood-fired stoneware
+  img: https://picsum.photos/seed/pot5/650/650
+
+- title: Still Water
+  material: Porcelain, tenmoku glaze
+  img: https://picsum.photos/seed/pot8/620/780

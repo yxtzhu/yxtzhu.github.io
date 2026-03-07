@@ -756,24 +756,14 @@ setTimeout(() => {
 
 <script>
 // ─────────────────────────────────────────────────────────────────────────────
-// POTTERY GALLERY — edit this array to add or remove pieces
+// POTTERY GALLERY — data is loaded from _data/gallery.yml
 //
-//   1. Drop your photo files into the /pottery/ folder in this repo
-//   2. Add a new entry to the array below:
-//      { title: 'Piece name', material: 'Clay type, glaze', img: 'pottery/filename.jpg' }
-//   3. Delete an entry to remove it from the gallery
+//   To add, remove, or reorder pieces:
+//     1. Drop image files into the /pottery/ folder
+//     2. Edit _data/gallery.yml — no need to touch this file
 //
-// The image will auto-detect portrait vs. landscape — no extra config needed.
 // ─────────────────────────────────────────────────────────────────────────────
-const galleryPieces = [
-  // Replace these placeholder images with your own (e.g. 'pottery/vase-01.jpg')
-  { title: 'Quiet Morning',     material: 'Stoneware, ash glaze',        img: 'https://picsum.photos/seed/pot1/600/800' },
-  { title: 'River Stone Bowl',  material: 'Porcelain, celadon glaze',    img: 'https://picsum.photos/seed/pot2/900/600' },
-  { title: 'Whispered Earth',   material: 'Red clay, unglazed',          img: 'https://picsum.photos/seed/pot3/600/750' },
-  { title: 'Tidal Pool',        material: 'Stoneware, copper carbonate', img: 'https://picsum.photos/seed/pot4/800/600' },
-  { title: 'Winter Kiln No. 3', material: 'Wood-fired stoneware',        img: 'https://picsum.photos/seed/pot5/650/650' },
-  { title: 'Still Water',       material: 'Porcelain, tenmoku glaze',    img: 'https://picsum.photos/seed/pot8/620/780' },
-];
+const galleryPieces = {{ site.data.gallery | jsonify }};
 
 (function () {
   const gTrack    = document.getElementById('gTrack');
