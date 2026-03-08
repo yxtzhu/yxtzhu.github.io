@@ -1,0 +1,25 @@
+{
+  "name": "Goal Tracker",
+  "short_name": "Goals",
+  "description": "Track your personal goals with Firebase sync",
+  "start_url": "/apps/goal-tracker/",
+  "scope": "/apps/goal-tracker/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
