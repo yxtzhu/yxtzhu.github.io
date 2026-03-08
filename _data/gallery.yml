@@ -30,3 +30,35 @@
 - title: Lotus
   material: Whitestone
   img: pottery/lotus--whitestone.jpeg
+
+- title: Dune
+  material: Whitestone, Navy
+  img: pottery/dune--whitestone-navy.jpeg
+
+- title: Dark Lotus
+  material: Terracotta, Celadon
+  img: pottery/dark-lotus--terracotta-celadon.jpeg
+
+- title: Blossom
+  material: Whitestone, Celadon
+  img: pottery/blossom--whitestone-celadon.jpeg
+
+- title: Peacock
+  material: Stoneware, Teal
+  img: pottery/peacock--stoneware-teal.jpeg
+
+- title: Sakura
+  material: Terracotta, Navy
+  img: pottery/sakura--terracotta-navy.jpeg
+
+- title: Petal
+  material: Celadon
+  img: pottery/petal--celadon.jpeg
+
+- title: Maker's Mark
+  material: Celadon
+  img: pottery/makers-mark--celadon.jpeg
+
+- title: Storm
+  material: Stoneware, Slate
+  img: pottery/storm--stoneware-slate.jpeg
