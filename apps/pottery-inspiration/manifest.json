@@ -1,0 +1,25 @@
+{
+  "name": "Pottery Inspiration",
+  "short_name": "Pottery",
+  "description": "Browse ceramics from The Met, V&A, and Art Institute of Chicago open-access collections.",
+  "start_url": "/apps/pottery-inspiration/",
+  "scope": "/apps/pottery-inspiration/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#141210",
+  "theme_color": "#141210",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
