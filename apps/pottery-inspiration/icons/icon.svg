@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C4956A"/>
+      <stop offset="100%" stop-color="#7B5B3A"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#bg)"/>
+  <!-- Vase body: wide belly, narrow neck, flared rim -->
+  <!-- Belly -->
+  <ellipse cx="256" cy="300" rx="110" ry="90" fill="#1E1B18" opacity="0.85"/>
+  <!-- Neck -->
+  <rect x="220" y="175" width="72" height="90" rx="10" fill="#1E1B18" opacity="0.85"/>
+  <!-- Flared rim -->
+  <ellipse cx="256" cy="175" rx="56" ry="18" fill="#1E1B18" opacity="0.85"/>
+  <!-- Bottom base -->
+  <ellipse cx="256" cy="388" rx="72" ry="16" fill="#1E1B18" opacity="0.85"/>
+  <!-- Connecting neck to belly smoothly -->
+  <path d="M220 220 Q190 260 146 300 Q146 390 256 390 Q366 390 366 300 Q322 260 292 220 Z" fill="#1E1B18" opacity="0.85"/>
+  <!-- Celadon glaze highlight -->
+  <ellipse cx="220" cy="280" rx="22" ry="38" fill="#7B8F6B" opacity="0.35"/>
+  <!-- Rim opening inner highlight -->
+  <ellipse cx="256" cy="172" rx="32" ry="10" fill="#9B7F62" opacity="0.4"/>
+</svg>
