@@ -228,7 +228,7 @@ function Lightbox({ item, onClose, onToggleFav, isFav, onSimilar, onSave }) {
           </a>
           <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginTop:24 }}>
             <button onClick={() => onToggleFav(item)} style={{ background:isFav?`${src.accent}30`:"none",border:`1px solid ${isFav?src.accent:"#5A534A"}`,color:isFav?src.accent:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>{isFav ? "♥ Saved" : "♡ Save"}</button>
-            <button onClick={() => onSimilar(item)} style={{ background:"none",border:"1px solid #5A534A",color:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>Similar forms</button>
+            <button onClick={() => onSimilar(item)} style={{ background:"none",border:"1px solid #5A534A",color:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>Similar period</button>
             <button onClick={() => onSave(item)} style={{ background:"none",border:"1px solid #5A534A",color:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>↓ Save</button>
           </div>
         </div>
@@ -286,6 +286,7 @@ function PotteryInspiration() {
     catch { return new Set(); }
   });
   const [showFavorites, setShowFavorites] = useState(false);
+  const [originItem, setOriginItem] = useState(null);
   const [favItems, setFavItems] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pottery-fav-items") || "[]"); }
     catch { return []; }
@@ -516,6 +517,7 @@ function PotteryInspiration() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && searchQuery.trim()) {
+                  setOriginItem(null);
                   setShowFavorites(false);
                   fetchResults(activeCategory, activeSources, searchQuery.trim());
                 }
@@ -524,13 +526,13 @@ function PotteryInspiration() {
               style={{ flex:"1 1 240px",minWidth:200,padding:"8px 12px",borderRadius:4,border:"1px solid #2A2622",background:"#1E1B18",color:"#D4CCC2",fontSize:13,fontFamily:"'DM Sans',system-ui,sans-serif",outline:"none" }}
             />
             {searchQuery && (
-              <button onClick={() => { setSearchQuery(""); fetchResults(activeCategory, activeSources); }} style={{ padding:"8px 12px",borderRadius:4,border:"1px solid #2A2622",background:"transparent",color:"#7A7268",fontSize:12,cursor:"pointer" }}>Clear</button>
+              <button onClick={() => { setSearchQuery(""); setOriginItem(null); fetchResults(activeCategory, activeSources); }} style={{ padding:"8px 12px",borderRadius:4,border:"1px solid #2A2622",background:"transparent",color:"#7A7268",fontSize:12,cursor:"pointer" }}>Clear</button>
             )}
           </div>
 
           <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:32,paddingBottom:24,borderBottom:"1px solid #1E1B18",alignItems:"center" }}>
             {Object.keys(CATEGORIES).map(cat => (
-              <button key={cat} onClick={() => { setSearchQuery(""); setActiveCategory(cat); }} style={{
+              <button key={cat} onClick={() => { setSearchQuery(""); setActiveCategory(cat); setOriginItem(null); }} style={{
                 padding:"5px 13px",borderRadius:4,border:"none",
                 background: activeCategory === cat ? "#2A2622" : "transparent",
                 color: activeCategory === cat ? "#D4CCC2" : "#5A534A",
@@ -555,6 +557,23 @@ function PotteryInspiration() {
           {!loading && !showFavorites && items.length === 0 && (
             <div style={{ textAlign:"center",padding:"80px 20px",color:"#5A534A",fontSize:14 }}>
               No results found. Try a different category or source.
+            </div>
+          )}
+
+          {originItem && !showFavorites && (
+            <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:20,padding:"10px 14px",borderRadius:6,background:"#1E1B18",border:"1px solid #2A2622" }}>
+              <button
+                onClick={() => setLightboxItem(originItem)}
+                style={{ flex:1,minWidth:0,display:"flex",alignItems:"center",gap:8,background:"none",border:"none",color:"#9B9488",cursor:"pointer",padding:0,textAlign:"left",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.02em" }}
+              >
+                <span style={{ flexShrink:0 }}>←</span>
+                <span style={{ overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>Back to <em style={{ fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:14,fontStyle:"italic",color:"#C4BDB4" }}>{originItem.title}</em></span>
+              </button>
+              <button
+                onClick={() => setOriginItem(null)}
+                aria-label="Dismiss"
+                style={{ flexShrink:0,background:"none",border:"none",color:"#4A4640",cursor:"pointer",fontSize:16,lineHeight:1,padding:"2px 4px" }}
+              >×</button>
             </div>
           )}
 
@@ -583,13 +602,13 @@ function PotteryInspiration() {
           onToggleFav={toggleFavorite}
           isFav={lightboxItem && favorites.has(lightboxItem.id)}
           onSimilar={(item) => {
-            const shape = extractShape(item);
-            const technique = extractTechnique(item);
             const culture = extractCulture(item);
-            const parts = [shape, technique, culture].filter(Boolean);
+            const period = item.period;
+            const parts = [culture, period].filter(Boolean);
             const q = parts.length > 0
               ? parts.join(" ")
-              : (item.classification || item.period || "ceramics");
+              : (item.classification || "ceramics");
+            setOriginItem(item);
             setSearchQuery(q);
             setShowFavorites(false);
             setLightboxItem(null);
