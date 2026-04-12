@@ -1,6 +1,6 @@
 {
-  "name": "Pottery Inspiration",
-  "short_name": "Pottery",
+  "name": "Pottery Inspo",
+  "short_name": "Pottery Inspo",
   "description": "Browse ceramics from The Met, V&A, and Art Institute of Chicago open-access collections.",
   "start_url": "/apps/pottery-inspiration/",
   "scope": "/apps/pottery-inspiration/",
