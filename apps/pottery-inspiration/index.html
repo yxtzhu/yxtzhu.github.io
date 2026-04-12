@@ -197,6 +197,8 @@ async function searchJapanSearch(query, page = 1) {
       const c = item.common || {};
       const imgRaw = Array.isArray(c.thumbnailUrl) ? c.thumbnailUrl[0] : c.thumbnailUrl;
       if (!imgRaw) return null;
+      const itemType = Array.isArray(c.type) ? c.type.join(" ") : (c.type || "");
+      if (/図書|書籍|雑誌|文書|古文書|文献/.test(itemType)) return null;
       const title = Array.isArray(c.title) ? c.title[0] : (c.title || "Untitled");
       const artist = Array.isArray(c.creator) ? c.creator[0] : (c.creator || null);
       return {
