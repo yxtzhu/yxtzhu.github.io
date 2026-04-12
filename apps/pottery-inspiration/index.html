@@ -197,6 +197,8 @@ async function searchJapanSearch(query, page = 1) {
       const c = item.common || {};
       const imgRaw = Array.isArray(c.thumbnailUrl) ? c.thumbnailUrl[0] : c.thumbnailUrl;
       if (!imgRaw) return null;
+      const itemType = Array.isArray(c.type) ? c.type.join(" ") : (c.type || "");
+      if (/図書|書籍|雑誌|文書|古文書|文献/.test(itemType)) return null;
       const title = Array.isArray(c.title) ? c.title[0] : (c.title || "Untitled");
       const artist = Array.isArray(c.creator) ? c.creator[0] : (c.creator || null);
       return {
@@ -372,11 +374,7 @@ function PotteryInspiration() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All Ceramics");
-  const [activeSources, setActiveSources] = useState(() => {
-    const s = new Set(["met","va","aic","cma","jpsearch"]);
-    if (NPM_API_KEY) s.add("npm");
-    return s;
-  });
+  const [activeSources, setActiveSources] = useState(() => new Set(["met","va","aic","cma","jpsearch","npm"]));
   const [lightboxItem, setLightboxItem] = useState(null);
   const [loadedCount, setLoadedCount] = useState({});
   const [cols, setCols] = useState(3);
@@ -605,7 +603,7 @@ function PotteryInspiration() {
           </p>
 
           <div className="pills-scroll" style={{ display:"flex",gap:8,flexWrap:"nowrap",overflowX:"auto",marginBottom:20,scrollbarWidth:"none",msOverflowStyle:"none" }}>
-            {Object.entries(SOURCES).filter(([key]) => key !== "npm" || NPM_API_KEY).map(([key,src]) => {
+            {Object.entries(SOURCES).map(([key,src]) => {
               const active = activeSources.has(key);
               const count = loadedCount[key] || 0;
               return (
