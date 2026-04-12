@@ -34,7 +34,7 @@ const SOURCES = {
   va:     { name: "V&A",               accent: "#7B8F6B" },
   aic:    { name: "Art Inst. Chicago", accent: "#8B6B7B" },
   cma:    { name: "Cleveland",         accent: "#7A6A4A" },
-  tomuco: { name: "ToMuCo",            accent: "#5A7A6A" },
+  jpsearch: { name: "Japan Search",     accent: "#5A7A6A" },
   npm:    { name: "Taiwan NPM",        accent: "#7A5A8A" },
 };
 
@@ -182,33 +182,39 @@ async function searchCleveland(query, skip = 0) {
   } catch (e) { console.error("CMA error:", e); return []; }
 }
 
-async function searchToMuCo(query, page = 1) {
+async function searchJapanSearch(query, page = 1) {
   try {
-    const url = `https://museumcollection.tokyo/works/?q=${encodeURIComponent(query)}&output=json&per_page=${PER_SOURCE}&page=${page}`;
+    const from = (page - 1) * PER_SOURCE;
+    const params = new URLSearchParams({ keyword: query, size: PER_SOURCE });
+    if (from > 0) params.set("from", from);
+    const url = `https://jpsearch.go.jp/api/item/search/jps-cross?${params}`;
     const res = await fetch(url);
+    if (!res.ok) return [];
     const data = await res.json();
-    const items = data["@graph"] || data.results || data.items || data.data || [];
-    if (!items.length) return [];
-    return items.map(a => {
-      const imgRaw = a.thumbnailUrl || a.image || a.contentUrl;
-      const img = typeof imgRaw === "string" ? imgRaw : (imgRaw?.url || imgRaw?.contentUrl || null);
-      if (!img) return null;
-      const idStr = a["@id"] ? a["@id"].replace(/\/$/, "").split("/").pop() : (a.identifier || a.id || Math.random().toString(36).slice(2));
+    const list = data.list || [];
+    if (!list.length) return [];
+    return list.map(item => {
+      const c = item.common || {};
+      const imgRaw = Array.isArray(c.thumbnailUrl) ? c.thumbnailUrl[0] : c.thumbnailUrl;
+      if (!imgRaw) return null;
+      const title = Array.isArray(c.title) ? c.title[0] : (c.title || "Untitled");
+      const artist = Array.isArray(c.creator) ? c.creator[0] : (c.creator || null);
       return {
-        id: `tomuco-${idStr}`, source: "tomuco",
-        title: a.name || "Untitled",
-        artist: a.creator?.name || (typeof a.creator === "string" ? a.creator : null),
-        date: a.dateCreated || null,
-        culture: a.locationCreated?.name || null,
-        medium: a.artMedium || a.material || null,
-        period: a.temporalCoverage || null,
-        imageUrl: img,
-        imageLarge: img,
-        link: a["@id"] || a.url || "https://museumcollection.tokyo/",
-        classification: Array.isArray(a["@type"]) ? a["@type"].find(t => t !== "VisualArtwork") || a["@type"][0] : (a["@type"] || null),
+        id: `jpsearch-${item.id || Math.random().toString(36).slice(2)}`,
+        source: "jpsearch",
+        title,
+        artist,
+        date: c.temporalCoverage || c.datePublished || null,
+        culture: null,
+        medium: null,
+        period: null,
+        imageUrl: imgRaw,
+        imageLarge: imgRaw,
+        link: item.id ? `https://jpsearch.go.jp/item/${item.id}` : "https://jpsearch.go.jp/",
+        classification: Array.isArray(c.type) ? c.type[0] : (c.type || null),
       };
     }).filter(Boolean);
-  } catch (e) { console.error("ToMuCo error:", e); return []; }
+  } catch (e) { console.error("JapanSearch error:", e); return []; }
 }
 
 async function searchNPM(query, page = 1) {
@@ -367,7 +373,7 @@ function PotteryInspiration() {
   const [hasMore, setHasMore] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All Ceramics");
   const [activeSources, setActiveSources] = useState(() => {
-    const s = new Set(["met","va","aic","cma","tomuco"]);
+    const s = new Set(["met","va","aic","cma","jpsearch"]);
     if (NPM_API_KEY) s.add("npm");
     return s;
   });
@@ -458,8 +464,8 @@ function PotteryInspiration() {
     if (sources.has("va"))     fetchers.push(searchVA(query, 1));
     if (sources.has("aic"))    fetchers.push(searchAIC(query, 1));
     if (sources.has("cma"))    fetchers.push(searchCleveland(query, 0));
-    if (sources.has("tomuco")) fetchers.push(searchToMuCo(query, 1));
-    if (sources.has("npm"))    fetchers.push(searchNPM(query, 1));
+    if (sources.has("jpsearch")) fetchers.push(searchJapanSearch(query, 1));
+    if (sources.has("npm"))      fetchers.push(searchNPM(query, 1));
 
     try {
       const results = await Promise.allSettled(fetchers);
@@ -500,8 +506,8 @@ function PotteryInspiration() {
     if (sources.has("va"))     fetchers.push(searchVA(query, nextVAPage));
     if (sources.has("aic"))    fetchers.push(searchAIC(query, nextAICPage));
     if (sources.has("cma"))    fetchers.push(searchCleveland(query, nextCMASkip));
-    if (sources.has("tomuco")) fetchers.push(searchToMuCo(query, nextToMuCoPage));
-    if (sources.has("npm"))    fetchers.push(searchNPM(query, nextNPMPage));
+    if (sources.has("jpsearch")) fetchers.push(searchJapanSearch(query, nextToMuCoPage));
+    if (sources.has("npm"))      fetchers.push(searchNPM(query, nextNPMPage));
 
     try {
       const results = await Promise.allSettled(fetchers);
@@ -599,7 +605,7 @@ function PotteryInspiration() {
           </p>
 
           <div className="pills-scroll" style={{ display:"flex",gap:8,flexWrap:"nowrap",overflowX:"auto",marginBottom:20,scrollbarWidth:"none",msOverflowStyle:"none" }}>
-            {Object.entries(SOURCES).map(([key,src]) => {
+            {Object.entries(SOURCES).filter(([key]) => key !== "npm" || NPM_API_KEY).map(([key,src]) => {
               const active = activeSources.has(key);
               const count = loadedCount[key] || 0;
               return (
