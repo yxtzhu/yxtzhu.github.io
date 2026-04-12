@@ -193,7 +193,7 @@ function Lightbox({ item, onClose, onToggleFav, isFav, onSimilar, onSave }) {
           <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginTop:24 }}>
             <button onClick={() => onToggleFav(item)} style={{ background:isFav?`${src.accent}30`:"none",border:`1px solid ${isFav?src.accent:"#5A534A"}`,color:isFav?src.accent:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>{isFav ? "♥ Saved" : "♡ Save"}</button>
             <button onClick={() => onSimilar(item)} style={{ background:"none",border:"1px solid #5A534A",color:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>Similar forms</button>
-            <button onClick={() => onSave(item)} style={{ background:"none",border:"1px solid #5A534A",color:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>↓ Download</button>
+            <button onClick={() => onSave(item)} style={{ background:"none",border:"1px solid #5A534A",color:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>↓ Save</button>
           </div>
         </div>
       </div>
@@ -555,16 +555,24 @@ function PotteryInspiration() {
             fetchResults(activeCategory, activeSources, q);
           }}
           onSave={async (item) => {
+            const filename = (item.title || "pottery").replace(/[^a-z0-9]/gi, "_").slice(0,50) + ".jpg";
             try {
               const res = await fetch(item.imageLarge);
               const blob = await res.blob();
+              const file = new File([blob], filename, { type: "image/jpeg" });
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: item.title || "Pottery" });
+                return;
+              }
+              // Fallback: blob download (desktop)
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
-              a.href = url;
-              a.download = (item.title || "pottery").replace(/[^a-z0-9]/gi, "_").slice(0,50) + ".jpg";
+              a.href = url; a.download = filename;
               document.body.appendChild(a); a.click(); document.body.removeChild(a);
               setTimeout(() => URL.revokeObjectURL(url), 1000);
-            } catch { window.open(item.imageLarge, "_blank"); }
+            } catch (e) {
+              if (e?.name !== "AbortError") window.open(item.imageLarge, "_blank");
+            }
           }}
         />
       </div>
