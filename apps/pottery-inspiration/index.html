@@ -153,9 +153,45 @@ async function searchAIC(query, page = 1) {
 // Ordered most-specific first to avoid false matches (e.g. "teapot" before "pot")
 const SHAPE_KEYWORDS = ["teapot","ewer","platter","pitcher","bottle","flask","vase","bowl","jar","cup","mug","dish","plate","jug","basin"];
 
+// Most distinctive named wares/techniques first, general materials last
+const TECHNIQUE_KEYWORDS = [
+  "celadon","tenmoku","raku","shino","oribe","bizen","shigaraki","hagi",
+  "sancai","majolica","faience","delftware","creamware","yixing",
+  "underglaze","overglaze","slip","porcelain","stoneware",
+];
+
+const CULTURE_MAP = [
+  [["chinese","china"], "Chinese"],
+  [["japanese","japan"], "Japanese"],
+  [["korean","korea"], "Korean"],
+  [["british","england","english","united kingdom"], "English"],
+  [["french","france"], "French"],
+  [["german","germany"], "German"],
+  [["dutch","netherlands","holland"], "Dutch"],
+  [["iranian","persian","persia","iran"], "Persian"],
+  [["turkish","turkey","ottoman"], "Turkish"],
+  [["italian","italy"], "Italian"],
+];
+
 function extractShape(item) {
   const text = [item.title, item.classification, item.medium].filter(Boolean).join(" ").toLowerCase();
   return SHAPE_KEYWORDS.find(s => new RegExp(`\\b${s}\\b`).test(text)) || null;
+}
+
+function extractTechnique(item) {
+  const text = [item.title, item.medium, item.period, item.classification].filter(Boolean).join(" ");
+  return TECHNIQUE_KEYWORDS.find(t => new RegExp(`\\b${t}\\b`, "i").test(text)) || null;
+}
+
+function extractCulture(item) {
+  if (!item.culture) return null;
+  const c = item.culture.toLowerCase();
+  for (const [keys, val] of CULTURE_MAP) {
+    if (keys.some(k => c.includes(k))) return val;
+  }
+  // Fall back to first segment before any comma/paren if short enough
+  const first = item.culture.split(/[,;(]/)[0].trim();
+  return first.length > 0 && first.length <= 20 ? first : null;
 }
 
 function Lightbox({ item, onClose, onToggleFav, isFav, onSimilar, onSave }) {
@@ -548,7 +584,12 @@ function PotteryInspiration() {
           isFav={lightboxItem && favorites.has(lightboxItem.id)}
           onSimilar={(item) => {
             const shape = extractShape(item);
-            const q = shape ? `${shape} ceramic` : (item.classification || item.period || item.culture || "ceramics");
+            const technique = extractTechnique(item);
+            const culture = extractCulture(item);
+            const parts = [shape, technique, culture].filter(Boolean);
+            const q = parts.length > 0
+              ? parts.join(" ")
+              : (item.classification || item.period || "ceramics");
             setSearchQuery(q);
             setShowFavorites(false);
             setLightboxItem(null);
