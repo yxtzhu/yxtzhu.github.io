@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Pottery" />
+  <meta name="apple-mobile-web-app-title" content="Pottery Inspo" />
   <meta name="theme-color" content="#141210" />
-  <title>Pottery Inspiration</title>
+  <title>Pottery Inspo</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icons/icon.svg" />
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -36,17 +36,19 @@ const SOURCES = {
 };
 
 const CATEGORIES = {
-  "All Ceramics":     ["ceramics", "pottery", "stoneware", "porcelain"],
-  "Tea Bowls":        ["tea bowl", "chawan", "tenmoku tea bowl"],
-  "Vases":            ["vase ceramic", "vase porcelain", "vase stoneware"],
-  "Bowls":            ["bowl ceramic", "bowl porcelain", "bowl stoneware"],
-  "Jars & Bottles":   ["jar stoneware", "bottle ceramic", "jar porcelain"],
-  "Plates & Dishes":  ["plate ceramic", "dish porcelain", "plate stoneware"],
-  "Teapots & Ewers":  ["teapot", "ewer ceramic", "teapot stoneware"],
-  "East Asian":       ["Song dynasty ceramics", "Japanese ceramics", "Korean celadon"],
-  "Celadon":          ["celadon", "celadon glaze", "Longquan celadon"],
-  "Raku & Bizen":     ["raku ware", "Bizen pottery", "Shigaraki ware"],
+  "All Ceramics":    ["ceramics", "pottery", "stoneware", "porcelain"],
+  "Tea Bowls":       ["tea bowl", "chawan", "tenmoku tea bowl"],
+  "Vases":           ["vase ceramic", "vase porcelain", "vase stoneware"],
+  "Bowls":           ["bowl ceramic", "bowl porcelain", "bowl stoneware"],
+  "Jars & Bottles":  ["jar stoneware", "bottle ceramic", "jar porcelain"],
+  "Plates & Dishes": ["plate ceramic", "dish porcelain", "plate stoneware"],
+  "Teapots & Ewers": ["teapot", "ewer ceramic", "teapot stoneware"],
+  "East Asian":      ["Song dynasty ceramics", "Japanese ceramics", "Korean celadon"],
+  "Celadon":         ["celadon", "celadon glaze", "Longquan celadon"],
+  "Raku & Bizen":    ["raku ware", "Bizen pottery", "Shigaraki ware"],
 };
+
+const PER_SOURCE = 10;
 
 function shuffleArray(arr) {
   const a = [...arr];
@@ -57,14 +59,18 @@ function shuffleArray(arr) {
   return a;
 }
 
-async function searchMet(query, limit = 12) {
+async function getMetIds(query) {
   try {
     const res = await fetch(
       `https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&isPublicDomain=true&q=${encodeURIComponent(query)}`
     );
     const data = await res.json();
-    if (!data.objectIDs?.length) return [];
-    const ids = shuffleArray(data.objectIDs).slice(0, limit);
+    return shuffleArray(data.objectIDs || []);
+  } catch { return []; }
+}
+
+async function fetchMetObjects(ids) {
+  try {
     const objects = await Promise.all(
       ids.map(async (id) => {
         try {
@@ -88,13 +94,13 @@ async function searchMet(query, limit = 12) {
       })
     );
     return objects.filter(Boolean);
-  } catch (e) { console.error("Met error:", e); return []; }
+  } catch { return []; }
 }
 
-async function searchVA(query, limit = 12) {
+async function searchVA(query, page = 1) {
   try {
     const res = await fetch(
-      `https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(query)}&page_size=${limit}&images_exist=1&random=${Math.floor(Math.random()*1000)}`
+      `https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(query)}&page_size=${PER_SOURCE}&page=${page}&images_exist=1`
     );
     const data = await res.json();
     if (!data.records?.length) return [];
@@ -117,10 +123,10 @@ async function searchVA(query, limit = 12) {
   } catch (e) { console.error("V&A error:", e); return []; }
 }
 
-async function searchAIC(query, limit = 12) {
+async function searchAIC(query, page = 1) {
   try {
     const fields = "id,title,artist_title,date_display,place_of_origin,medium_display,image_id,artwork_type_title,classification_title,style_title";
-    const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query)}&limit=${limit}&fields=${fields}&query[term][is_public_domain]=true`;
+    const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query)}&limit=${PER_SOURCE}&page=${page}&fields=${fields}&query[term][is_public_domain]=true`;
     const res = await fetch(url);
     const data = await res.json();
     if (!data.data?.length) return [];
@@ -144,7 +150,7 @@ async function searchAIC(query, limit = 12) {
   } catch (e) { console.error("AIC error:", e); return []; }
 }
 
-function Lightbox({ item, onClose }) {
+function Lightbox({ item, onClose, onToggleFav, isFav, onSimilar, onSave }) {
   const [wide, setWide] = useState(window.innerWidth >= 700);
   useEffect(() => {
     const h1 = (e) => e.key === "Escape" && onClose();
@@ -156,15 +162,12 @@ function Lightbox({ item, onClose }) {
   if (!item) return null;
   const src = SOURCES[item.source];
   const meta = [
-    ["Artist", item.artist],
-    ["Date", item.date],
-    ["Culture / Origin", item.culture],
-    ["Period / Style", item.period],
-    ["Medium", item.medium],
-    ["Classification", item.classification],
+    ["Artist", item.artist], ["Date", item.date], ["Culture / Origin", item.culture],
+    ["Period / Style", item.period], ["Medium", item.medium], ["Classification", item.classification],
   ].filter(([,v]) => v);
   return (
     <div onClick={onClose} style={{ position:"fixed",inset:0,zIndex:1000,background:"rgba(15,12,10,0.92)",backdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",padding:24,cursor:"zoom-out",overflowY:"auto" }}>
+      <button onClick={onClose} aria-label="Close" style={{ position:"fixed",top:16,right:16,zIndex:1001,width:40,height:40,borderRadius:"50%",border:"1px solid #5A534A",background:"rgba(30,27,24,0.8)",color:"#E8E0D6",cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(8px)" }}>×</button>
       <div onClick={(e)=>e.stopPropagation()} style={{ display:"flex",gap:32,maxWidth:1100,width:"100%",maxHeight:"90vh",cursor:"default",flexDirection:wide?"row":"column",alignItems:wide?"flex-start":"center",overflowY:"auto" }}>
         <img src={item.imageLarge} alt={item.title} style={{ maxHeight:"80vh",maxWidth:wide?"55%":"100%",objectFit:"contain",borderRadius:6,flexShrink:0 }} />
         <div style={{ color:"#E8E0D6",fontFamily:"'Cormorant Garamond',Georgia,serif",minWidth:220,maxWidth:380 }}>
@@ -179,14 +182,18 @@ function Lightbox({ item, onClose }) {
           <a href={item.link} target="_blank" rel="noopener noreferrer" style={{ display:"inline-block",marginTop:16,fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",color:src.accent,textDecoration:"none",borderBottom:`1px solid ${src.accent}40`,paddingBottom:2,letterSpacing:"0.03em" }}>
             View on {src.name} →
           </a>
-          <button onClick={onClose} style={{ display:"block",marginTop:28,background:"none",border:"1px solid #5A534A",color:"#9B9488",padding:"8px 20px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.05em" }}>Close</button>
+          <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginTop:24 }}>
+            <button onClick={() => onToggleFav(item)} style={{ background:isFav?`${src.accent}30`:"none",border:`1px solid ${isFav?src.accent:"#5A534A"}`,color:isFav?src.accent:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>{isFav ? "♥ Saved" : "♡ Save"}</button>
+            <button onClick={() => onSimilar(item)} style={{ background:"none",border:"1px solid #5A534A",color:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>Similar forms</button>
+            <button onClick={() => onSave(item)} style={{ background:"none",border:"1px solid #5A534A",color:"#9B9488",padding:"8px 14px",borderRadius:4,cursor:"pointer",fontSize:12,fontFamily:"'DM Sans',system-ui,sans-serif",letterSpacing:"0.03em" }}>↓ Download</button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function Card({ item, onClick }) {
+function Card({ item, onClick, onToggleFav, isFav }) {
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const src = SOURCES[item.source];
@@ -204,6 +211,7 @@ function Card({ item, onClick }) {
       }}
     >
       <div style={{ position:"relative",background:loaded?"transparent":"#2A2622",minHeight:loaded?0:200 }}>
+        <button onClick={(e)=>{e.stopPropagation();onToggleFav(item);}} aria-label="Save" style={{ position:"absolute",top:8,right:8,zIndex:2,width:32,height:32,borderRadius:"50%",border:"none",background:"rgba(20,18,16,0.7)",color:isFav?"#E8A0A0":"#D4CCC2",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)" }}>{isFav ? "♥" : "♡"}</button>
         <img src={item.imageUrl} alt={item.title} loading="lazy" onLoad={()=>setLoaded(true)} style={{ width:"100%",display:"block",opacity:loaded?1:0,transition:"opacity 0.4s ease" }} />
       </div>
       <div style={{ padding:"12px 14px 14px" }}>
@@ -221,12 +229,54 @@ function Card({ item, onClick }) {
 function PotteryInspiration() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All Ceramics");
   const [activeSources, setActiveSources] = useState(new Set(["met","va","aic"]));
   const [lightboxItem, setLightboxItem] = useState(null);
   const [loadedCount, setLoadedCount] = useState({});
   const [cols, setCols] = useState(3);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [favorites, setFavorites] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("pottery-favs") || "[]")); }
+    catch { return new Set(); }
+  });
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [favItems, setFavItems] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pottery-fav-items") || "[]"); }
+    catch { return []; }
+  });
+
   const abortRef = useRef(null);
+  const metIdsRef = useRef([]);
+  const metOffsetRef = useRef(0);
+  const vaPageRef = useRef(1);
+  const aicPageRef = useRef(1);
+  const currentQueryRef = useRef("");
+  const activeSourcesRef = useRef(activeSources);
+  const loadingMoreRef = useRef(false);
+  const generationRef = useRef(0);
+  const sentinelRef = useRef(null);
+
+  useEffect(() => { activeSourcesRef.current = activeSources; }, [activeSources]);
+
+  const toggleFavorite = (item) => {
+    setFavorites(prev => {
+      const next = new Set(prev);
+      let nextItems;
+      if (next.has(item.id)) {
+        next.delete(item.id);
+        nextItems = favItems.filter(i => i.id !== item.id);
+      } else {
+        next.add(item.id);
+        nextItems = [...favItems, item];
+      }
+      setFavItems(nextItems);
+      localStorage.setItem("pottery-favs", JSON.stringify([...next]));
+      localStorage.setItem("pottery-fav-items", JSON.stringify(nextItems));
+      return next;
+    });
+  };
 
   useEffect(() => {
     const h = () => setCols(window.innerWidth > 900 ? 3 : window.innerWidth > 560 ? 2 : 1);
@@ -234,37 +284,107 @@ function PotteryInspiration() {
     return () => window.removeEventListener("resize", h);
   }, []);
 
-  const fetchResults = useCallback(async (category, sources) => {
+  const fetchResults = useCallback(async (category, sources, overrideQuery) => {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setLoading(true); setItems([]); setLoadedCount({});
+    const gen = ++generationRef.current;
+    loadingMoreRef.current = false;
 
-    const queries = CATEGORIES[category] || ["ceramics"];
-    const query = queries[Math.floor(Math.random() * queries.length)];
-    const perSource = Math.ceil(16 / sources.size);
+    setLoading(true); setItems([]); setLoadedCount({}); setHasMore(false); setLoadingMore(false);
+
+    const query = overrideQuery || (() => {
+      const queries = CATEGORIES[category] || ["ceramics"];
+      return queries[Math.floor(Math.random() * queries.length)];
+    })();
+
+    currentQueryRef.current = query;
+    vaPageRef.current = 1;
+    aicPageRef.current = 1;
+
+    const metIds = sources.has("met") ? await getMetIds(query) : [];
+    if (gen !== generationRef.current) return;
+
+    metIdsRef.current = metIds;
+    metOffsetRef.current = PER_SOURCE;
 
     const fetchers = [];
-    if (sources.has("met")) fetchers.push(searchMet(query, perSource));
-    if (sources.has("va"))  fetchers.push(searchVA(query, perSource));
-    if (sources.has("aic")) fetchers.push(searchAIC(query, perSource));
+    if (metIds.length > 0) fetchers.push(fetchMetObjects(metIds.slice(0, PER_SOURCE)));
+    if (sources.has("va"))  fetchers.push(searchVA(query, 1));
+    if (sources.has("aic")) fetchers.push(searchAIC(query, 1));
 
     try {
       const results = await Promise.allSettled(fetchers);
-      if (controller.signal.aborted) return;
+      if (gen !== generationRef.current) return;
       const allItems = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
       const counts = {};
       allItems.forEach(i => { counts[i.source] = (counts[i.source] || 0) + 1; });
       setLoadedCount(counts);
       setItems(shuffleArray(allItems));
+      setHasMore(allItems.length > 0);
     } catch {} finally {
-      if (!controller.signal.aborted) setLoading(false);
+      if (gen === generationRef.current) setLoading(false);
+    }
+  }, []);
+
+  const fetchMore = useCallback(async () => {
+    if (loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+
+    const gen = generationRef.current;
+    const query = currentQueryRef.current;
+    const sources = activeSourcesRef.current;
+
+    const metStart = metOffsetRef.current;
+    const nextMetIds = metIdsRef.current.slice(metStart, metStart + PER_SOURCE);
+    metOffsetRef.current = metStart + PER_SOURCE;
+
+    const nextVAPage = ++vaPageRef.current;
+    const nextAICPage = ++aicPageRef.current;
+
+    const fetchers = [];
+    if (nextMetIds.length > 0) fetchers.push(fetchMetObjects(nextMetIds));
+    if (sources.has("va"))  fetchers.push(searchVA(query, nextVAPage));
+    if (sources.has("aic")) fetchers.push(searchAIC(query, nextAICPage));
+
+    try {
+      const results = await Promise.allSettled(fetchers);
+      if (gen !== generationRef.current) return;
+      const newItems = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
+      if (newItems.length === 0) {
+        setHasMore(false);
+      } else {
+        setItems(prev => [...prev, ...shuffleArray(newItems)]);
+        setLoadedCount(prev => {
+          const next = { ...prev };
+          newItems.forEach(i => { next[i.source] = (next[i.source] || 0) + 1; });
+          return next;
+        });
+      }
+    } catch {} finally {
+      if (gen === generationRef.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
     }
   }, []);
 
   useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasMore || loading || showFavorites) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) fetchMore(); },
+      { rootMargin: "300px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, fetchMore, showFavorites]);
+
+  useEffect(() => {
+    if (showFavorites) return;
     if (activeSources.size > 0) fetchResults(activeCategory, activeSources);
-  }, [activeCategory, activeSources, fetchResults]);
+  }, [activeCategory, activeSources, fetchResults, showFavorites]);
 
   const toggleSource = (key) => {
     setActiveSources(prev => {
@@ -288,7 +408,7 @@ function PotteryInspiration() {
       <div style={{ minHeight:"100vh",background:"#141210",color:"#D4CCC2",fontFamily:"'DM Sans',system-ui,sans-serif" }}>
 
         <header style={{ padding:`calc(env(safe-area-inset-top, 0px) + 40px) 28px 0`,maxWidth:1200,margin:"0 auto" }}>
-          <div style={{ fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.2em",color:"#6A6258",marginBottom:8 }}>Pottery Inspiration</div>
+          <div style={{ fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.2em",color:"#6A6258",marginBottom:8 }}>Pottery Inspo</div>
           <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:38,fontWeight:400,lineHeight:1.15,color:"#E8E0D6",margin:"0 0 6px",letterSpacing:"-0.02em" }}>
             Vessel Forms Across Collections
           </h1>
@@ -310,7 +430,7 @@ function PotteryInspiration() {
                   display:"flex",alignItems:"center",gap:6,
                 }}>
                   {src.name}
-                  {count > 0 && !loading && (
+                  {count > 0 && (
                     <span style={{ fontSize:9,opacity:0.7,background:active?`${src.accent}30`:"#2A2622",padding:"1px 6px",borderRadius:8 }}>{count}</span>
                   )}
                 </button>
@@ -318,9 +438,29 @@ function PotteryInspiration() {
             })}
           </div>
 
+          <div style={{ display:"flex",gap:10,marginBottom:16,alignItems:"center",flexWrap:"wrap" }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && searchQuery.trim()) {
+                  setShowFavorites(false);
+                  fetchResults(activeCategory, activeSources, searchQuery.trim());
+                }
+              }}
+              placeholder="Search — e.g. 'moon jar', 'Jun ware', 'tenmoku'"
+              style={{ flex:"1 1 240px",minWidth:200,padding:"8px 12px",borderRadius:4,border:"1px solid #2A2622",background:"#1E1B18",color:"#D4CCC2",fontSize:13,fontFamily:"'DM Sans',system-ui,sans-serif",outline:"none" }}
+            />
+            {searchQuery && (
+              <button onClick={() => { setSearchQuery(""); fetchResults(activeCategory, activeSources); }} style={{ padding:"8px 12px",borderRadius:4,border:"1px solid #2A2622",background:"transparent",color:"#7A7268",fontSize:12,cursor:"pointer" }}>Clear</button>
+            )}
+            <button onClick={() => setShowFavorites(v => !v)} style={{ padding:"8px 14px",borderRadius:4,border:showFavorites?"1px solid #E8A0A0":"1px solid #2A2622",background:showFavorites?"#E8A0A020":"transparent",color:showFavorites?"#E8A0A0":"#7A7268",fontSize:12,fontWeight:600,cursor:"pointer",letterSpacing:"0.02em" }}>♥ Favorites ({favItems.length})</button>
+          </div>
+
           <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:32,paddingBottom:24,borderBottom:"1px solid #1E1B18",alignItems:"center" }}>
             {Object.keys(CATEGORIES).map(cat => (
-              <button key={cat} onClick={() => setActiveCategory(cat)} style={{
+              <button key={cat} onClick={() => { setSearchQuery(""); setActiveCategory(cat); }} style={{
                 padding:"5px 13px",borderRadius:4,border:"none",
                 background: activeCategory === cat ? "#2A2622" : "transparent",
                 color: activeCategory === cat ? "#D4CCC2" : "#5A534A",
@@ -342,17 +482,56 @@ function PotteryInspiration() {
               <div style={{ fontSize:13 }}>Searching collections\u2026</div>
             </div>
           )}
-          {!loading && items.length === 0 && (
+          {!loading && !showFavorites && items.length === 0 && (
             <div style={{ textAlign:"center",padding:"80px 20px",color:"#5A534A",fontSize:14 }}>
               No results found. Try a different category or source.
             </div>
           )}
-          <div style={{ columnCount: cols, columnGap: 16 }}>
-            {items.map(item => <Card key={item.id} item={item} onClick={setLightboxItem} />)}
+
+          <div style={{ columnCount:cols, columnGap:16 }}>
+            {(showFavorites ? favItems : items).map(item => (
+              <Card key={item.id} item={item} onClick={setLightboxItem} onToggleFav={toggleFavorite} isFav={favorites.has(item.id)} />
+            ))}
           </div>
+
+          {!showFavorites && <div ref={sentinelRef} style={{ height:1 }} />}
+
+          {loadingMore && (
+            <div style={{ textAlign:"center",padding:"32px 20px",color:"#5A534A" }}>
+              <div style={{ width:20,height:20,border:"2px solid #3A3632",borderTopColor:"#7A7268",borderRadius:"50%",margin:"0 auto 12px",animation:"spin 0.8s linear infinite" }} />
+              <div style={{ fontSize:12 }}>Loading more\u2026</div>
+            </div>
+          )}
+          {!hasMore && !loading && !loadingMore && items.length > 0 && !showFavorites && (
+            <div style={{ textAlign:"center",padding:"24px 20px",color:"#3A3632",fontSize:11,letterSpacing:"0.05em" }}>— end of results —</div>
+          )}
         </main>
 
-        <Lightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
+        <Lightbox
+          item={lightboxItem}
+          onClose={() => setLightboxItem(null)}
+          onToggleFav={toggleFavorite}
+          isFav={lightboxItem && favorites.has(lightboxItem.id)}
+          onSimilar={(item) => {
+            const q = item.classification || item.period || item.culture || "ceramics";
+            setSearchQuery(q);
+            setShowFavorites(false);
+            setLightboxItem(null);
+            fetchResults(activeCategory, activeSources, q);
+          }}
+          onSave={async (item) => {
+            try {
+              const res = await fetch(item.imageLarge);
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = (item.title || "pottery").replace(/[^a-z0-9]/gi, "_").slice(0,50) + ".jpg";
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch { window.open(item.imageLarge, "_blank"); }
+          }}
+        />
       </div>
     </>
   );
