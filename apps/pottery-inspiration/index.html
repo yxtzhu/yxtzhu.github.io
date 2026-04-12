@@ -150,6 +150,14 @@ async function searchAIC(query, page = 1) {
   } catch (e) { console.error("AIC error:", e); return []; }
 }
 
+// Ordered most-specific first to avoid false matches (e.g. "teapot" before "pot")
+const SHAPE_KEYWORDS = ["teapot","ewer","platter","pitcher","bottle","flask","vase","bowl","jar","cup","mug","dish","plate","jug","basin"];
+
+function extractShape(item) {
+  const text = [item.title, item.classification, item.medium].filter(Boolean).join(" ").toLowerCase();
+  return SHAPE_KEYWORDS.find(s => new RegExp(`\\b${s}\\b`).test(text)) || null;
+}
+
 function Lightbox({ item, onClose, onToggleFav, isFav, onSimilar, onSave }) {
   const [wide, setWide] = useState(window.innerWidth >= 700);
   useEffect(() => {
@@ -404,8 +412,35 @@ function PotteryInspiration() {
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #141210; }
         ::-webkit-scrollbar-thumb { background: #2A2622; border-radius: 3px; }
+        .pills-scroll::-webkit-scrollbar { display: none; }
       `}</style>
       <div style={{ minHeight:"100vh",background:"#141210",color:"#D4CCC2",fontFamily:"'DM Sans',system-ui,sans-serif" }}>
+
+        <button
+          onClick={() => setShowFavorites(v => !v)}
+          aria-label={showFavorites ? "Show all" : `Favorites (${favItems.length})`}
+          style={{
+            position:"fixed",top:"calc(env(safe-area-inset-top, 0px) + 12px)",right:16,zIndex:200,
+            width:40,height:40,borderRadius:"50%",
+            border:showFavorites?"1.5px solid #E8A0A0":"1.5px solid #3A3632",
+            background:showFavorites?"rgba(232,160,160,0.15)":"rgba(20,18,16,0.85)",
+            color:showFavorites?"#E8A0A0":"#7A7268",
+            cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",
+            backdropFilter:"blur(8px)",transition:"all 0.2s ease",
+          }}
+        >
+          {showFavorites ? "♥" : "♡"}
+          {favItems.length > 0 && (
+            <span style={{
+              position:"absolute",top:-3,right:-3,
+              background:"#E8A0A0",color:"#141210",
+              fontSize:8,fontWeight:700,lineHeight:1,
+              minWidth:14,height:14,borderRadius:7,
+              display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",
+              fontFamily:"'DM Sans',system-ui,sans-serif",
+            }}>{favItems.length}</span>
+          )}
+        </button>
 
         <header style={{ padding:`calc(env(safe-area-inset-top, 0px) + 40px) 28px 0`,maxWidth:1200,margin:"0 auto" }}>
           <div style={{ fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.2em",color:"#6A6258",marginBottom:8 }}>Pottery Inspo</div>
@@ -416,13 +451,13 @@ function PotteryInspiration() {
             Pulling ceramics from three museum open-access APIs. Tap any piece to see details, medium, and provenance.
           </p>
 
-          <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginBottom:20 }}>
+          <div className="pills-scroll" style={{ display:"flex",gap:8,flexWrap:"nowrap",overflowX:"auto",marginBottom:20,scrollbarWidth:"none",msOverflowStyle:"none" }}>
             {Object.entries(SOURCES).map(([key,src]) => {
               const active = activeSources.has(key);
               const count = loadedCount[key] || 0;
               return (
                 <button key={key} onClick={() => toggleSource(key)} style={{
-                  padding:"6px 14px",borderRadius:20,
+                  padding:"6px 14px",borderRadius:20,flexShrink:0,
                   border: active ? `1.5px solid ${src.accent}` : "1.5px solid #2A2622",
                   background: active ? `${src.accent}18` : "transparent",
                   color: active ? src.accent : "#5A534A",
@@ -438,7 +473,7 @@ function PotteryInspiration() {
             })}
           </div>
 
-          <div style={{ display:"flex",gap:10,marginBottom:16,alignItems:"center",flexWrap:"wrap" }}>
+          <div style={{ display:"flex",gap:10,marginBottom:16,alignItems:"center" }}>
             <input
               type="text"
               value={searchQuery}
@@ -455,7 +490,6 @@ function PotteryInspiration() {
             {searchQuery && (
               <button onClick={() => { setSearchQuery(""); fetchResults(activeCategory, activeSources); }} style={{ padding:"8px 12px",borderRadius:4,border:"1px solid #2A2622",background:"transparent",color:"#7A7268",fontSize:12,cursor:"pointer" }}>Clear</button>
             )}
-            <button onClick={() => setShowFavorites(v => !v)} style={{ padding:"8px 14px",borderRadius:4,border:showFavorites?"1px solid #E8A0A0":"1px solid #2A2622",background:showFavorites?"#E8A0A020":"transparent",color:showFavorites?"#E8A0A0":"#7A7268",fontSize:12,fontWeight:600,cursor:"pointer",letterSpacing:"0.02em" }}>♥ Favorites ({favItems.length})</button>
           </div>
 
           <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:32,paddingBottom:24,borderBottom:"1px solid #1E1B18",alignItems:"center" }}>
@@ -513,7 +547,8 @@ function PotteryInspiration() {
           onToggleFav={toggleFavorite}
           isFav={lightboxItem && favorites.has(lightboxItem.id)}
           onSimilar={(item) => {
-            const q = item.classification || item.period || item.culture || "ceramics";
+            const shape = extractShape(item);
+            const q = shape ? `${shape} ceramic` : (item.classification || item.period || item.culture || "ceramics");
             setSearchQuery(q);
             setShowFavorites(false);
             setLightboxItem(null);
