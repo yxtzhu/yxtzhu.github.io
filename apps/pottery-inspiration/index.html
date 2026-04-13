@@ -35,10 +35,11 @@ const SOURCES = {
   aic:    { name: "Art Inst. Chicago", accent: "#8B6B7B" },
   cma:    { name: "Cleveland",         accent: "#7A6A4A" },
   jpsearch: { name: "Japan Search",     accent: "#5A7A6A" },
-  si:     { name: "Smithsonian",        accent: "#7A5A8A" },
+  rijks:  { name: "Rijksmuseum",        accent: "#8A6A3A" },
 };
 
-// Smithsonian Open Access uses the public DEMO_KEY (40 req/day). No registration required.
+// Rijksmuseum: free API key from rijksmuseum.nl/en/rijksstudio → Advanced Settings
+const RIJKSMUSEUM_KEY = "";
 
 const CATEGORIES = {
   "All Ceramics":    ["ceramics", "pottery", "stoneware", "porcelain"],
@@ -223,40 +224,39 @@ async function searchJapanSearch(query, page = 1) {
   } catch (e) { console.error("JapanSearch error:", e); return []; }
 }
 
-async function searchSmithsonian(query, start = 0) {
+async function searchRijksmuseum(query, page = 1) {
+  if (!RIJKSMUSEUM_KEY) return [];
   try {
     const params = new URLSearchParams({
+      key: RIJKSMUSEUM_KEY,
       q: query,
-      api_key: "DEMO_KEY",
-      rows: PER_SOURCE,
-      start,
-      online_media_type: "Images",
+      imgonly: "true",
+      ps: PER_SOURCE,
+      p: page,
     });
-    const url = `https://api.si.edu/openaccess/api/v1.0/search?${params}`;
-    const res = await fetch(url);
+    const res = await fetch(`https://www.rijksmuseum.nl/api/en/collection?${params}`);
     if (!res.ok) return [];
     const data = await res.json();
-    const rows = data.response?.rows || [];
-    return rows.map(item => {
-      const desc = item.content?.descriptiveNonRepeating || {};
-      const media = desc.online_media?.media?.[0];
-      const imgUrl = media?.thumbnail;
+    return (data.artObjects || []).map(obj => {
+      const imgUrl = obj.webImage?.url;
       if (!imgUrl) return null;
+      const thumb = imgUrl.replace(/=s\d+$/, "=s400");
+      const large = imgUrl.replace(/=s\d+$/, "=s1200");
       return {
-        id: `si-${item.id}`, source: "si",
-        title: item.title || "Untitled",
-        artist: item.content?.freetext?.name?.[0]?.content || null,
-        date: item.content?.freetext?.date?.[0]?.content || null,
-        culture: item.content?.freetext?.place?.[0]?.content || null,
-        medium: item.content?.freetext?.physicalDescription?.[0]?.content || null,
-        period: item.content?.freetext?.style_period?.[0]?.content || null,
-        imageUrl: imgUrl,
-        imageLarge: media?.content || imgUrl,
-        link: desc.record_link || "https://collections.si.edu/",
-        classification: item.content?.freetext?.objectType?.[0]?.content || null,
+        id: `rijks-${obj.objectNumber}`, source: "rijks",
+        title: obj.title || "Untitled",
+        artist: obj.principalOrFirstMaker || null,
+        date: null,
+        culture: null,
+        medium: null,
+        period: null,
+        imageUrl: thumb,
+        imageLarge: large,
+        link: obj.links?.web || `https://www.rijksmuseum.nl/en/collection/${obj.objectNumber}`,
+        classification: null,
       };
     }).filter(Boolean);
-  } catch (e) { console.error("Smithsonian error:", e); return []; }
+  } catch (e) { console.error("Rijksmuseum error:", e); return []; }
 }
 
 // Ordered most-specific first to avoid false matches (e.g. "teapot" before "pot")
@@ -385,7 +385,7 @@ function PotteryInspiration() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All Ceramics");
-  const [activeSources, setActiveSources] = useState(() => new Set(["met","va","aic","cma","jpsearch","si"]));
+  const [activeSources, setActiveSources] = useState(() => new Set(["met","va","aic","cma","jpsearch","rijks"]));
   const [lightboxItem, setLightboxItem] = useState(null);
   const [loadedCount, setLoadedCount] = useState({});
   const [cols, setCols] = useState(3);
@@ -408,7 +408,7 @@ function PotteryInspiration() {
   const aicPageRef = useRef(1);
   const cmaSkipRef = useRef(0);
   const tomucoPageRef = useRef(1);
-  const siStartRef = useRef(0);
+  const rijksPageRef = useRef(1);
   const currentQueryRef = useRef("");
   const activeSourcesRef = useRef(activeSources);
   const loadingMoreRef = useRef(false);
@@ -460,7 +460,7 @@ function PotteryInspiration() {
     aicPageRef.current = 1;
     cmaSkipRef.current = PER_SOURCE;
     tomucoPageRef.current = 1;
-    siStartRef.current = PER_SOURCE;
+    rijksPageRef.current = 2;
 
     const metIds = sources.has("met") ? await getMetIds(query) : [];
     if (gen !== generationRef.current) return;
@@ -474,7 +474,7 @@ function PotteryInspiration() {
     if (sources.has("aic"))    fetchers.push(searchAIC(query, 1));
     if (sources.has("cma"))    fetchers.push(searchCleveland(query, 0));
     if (sources.has("jpsearch")) fetchers.push(searchJapanSearch(query, 1));
-    if (sources.has("si"))       fetchers.push(searchSmithsonian(query, 0));
+    if (sources.has("rijks"))    fetchers.push(searchRijksmuseum(query, 1));
 
     try {
       const results = await Promise.allSettled(fetchers);
@@ -508,8 +508,8 @@ function PotteryInspiration() {
     const nextCMASkip = cmaSkipRef.current;
     cmaSkipRef.current = nextCMASkip + PER_SOURCE;
     const nextToMuCoPage = ++tomucoPageRef.current;
-    const nextSIStart = siStartRef.current;
-    siStartRef.current = nextSIStart + PER_SOURCE;
+    const nextRijksPage = rijksPageRef.current;
+    rijksPageRef.current = nextRijksPage + 1;
 
     const fetchers = [];
     if (nextMetIds.length > 0) fetchers.push(fetchMetObjects(nextMetIds));
@@ -517,7 +517,7 @@ function PotteryInspiration() {
     if (sources.has("aic"))    fetchers.push(searchAIC(query, nextAICPage));
     if (sources.has("cma"))    fetchers.push(searchCleveland(query, nextCMASkip));
     if (sources.has("jpsearch")) fetchers.push(searchJapanSearch(query, nextToMuCoPage));
-    if (sources.has("si"))       fetchers.push(searchSmithsonian(query, nextSIStart));
+    if (sources.has("rijks"))    fetchers.push(searchRijksmuseum(query, nextRijksPage));
 
     try {
       const results = await Promise.allSettled(fetchers);
