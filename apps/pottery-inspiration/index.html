@@ -35,11 +35,10 @@ const SOURCES = {
   aic:    { name: "Art Inst. Chicago", accent: "#8B6B7B" },
   cma:    { name: "Cleveland",         accent: "#7A6A4A" },
   jpsearch: { name: "Japan Search",     accent: "#5A7A6A" },
-  npm:    { name: "Taiwan NPM",        accent: "#7A5A8A" },
+  si:     { name: "Smithsonian",        accent: "#7A5A8A" },
 };
 
-// Register a free API key at https://openapiweb.npm.gov.tw to enable Taiwan NPM results
-const NPM_API_KEY = "";
+// Smithsonian Open Access uses the public DEMO_KEY (40 req/day). No registration required.
 
 const CATEGORIES = {
   "All Ceramics":    ["ceramics", "pottery", "stoneware", "porcelain"],
@@ -182,10 +181,14 @@ async function searchCleveland(query, skip = 0) {
   } catch (e) { console.error("CMA error:", e); return []; }
 }
 
+// Fetch 4× more than needed so the expanded filter still yields PER_SOURCE results
+const JPSEARCH_DOC_TYPES = /図書|書籍|雑誌|文書|古文書|文献|絵図|地図|新聞|パンフレット|冊子|写本|版本|活字本|拓本|印刷物|音声|映像|フィルム|マイクロ|\bbook\b|\bjournal\b|\bperiodical\b|\bmanuscript\b|\bnewspaper\b/i;
+
 async function searchJapanSearch(query, page = 1) {
   try {
-    const from = (page - 1) * PER_SOURCE;
-    const params = new URLSearchParams({ keyword: query, size: PER_SOURCE });
+    const batchSize = PER_SOURCE * 4;
+    const from = (page - 1) * batchSize;
+    const params = new URLSearchParams({ keyword: query, size: batchSize });
     if (from > 0) params.set("from", from);
     const url = `https://jpsearch.go.jp/api/item/search/jps-cross?${params}`;
     const res = await fetch(url);
@@ -193,12 +196,12 @@ async function searchJapanSearch(query, page = 1) {
     const data = await res.json();
     const list = data.list || [];
     if (!list.length) return [];
-    return list.map(item => {
+    const results = list.map(item => {
       const c = item.common || {};
       const imgRaw = Array.isArray(c.thumbnailUrl) ? c.thumbnailUrl[0] : c.thumbnailUrl;
       if (!imgRaw) return null;
       const itemType = Array.isArray(c.type) ? c.type.join(" ") : (c.type || "");
-      if (/図書|書籍|雑誌|文書|古文書|文献/.test(itemType)) return null;
+      if (JPSEARCH_DOC_TYPES.test(itemType)) return null;
       const title = Array.isArray(c.title) ? c.title[0] : (c.title || "Untitled");
       const artist = Array.isArray(c.creator) ? c.creator[0] : (c.creator || null);
       return {
@@ -216,36 +219,44 @@ async function searchJapanSearch(query, page = 1) {
         classification: Array.isArray(c.type) ? c.type[0] : (c.type || null),
       };
     }).filter(Boolean);
+    return results.slice(0, PER_SOURCE);
   } catch (e) { console.error("JapanSearch error:", e); return []; }
 }
 
-async function searchNPM(query, page = 1) {
-  if (!NPM_API_KEY) return [];
+async function searchSmithsonian(query, start = 0) {
   try {
-    const offset = (page - 1) * PER_SOURCE;
-    const url = `https://openapiweb.npm.gov.tw/api/v1/artworks?keyword=${encodeURIComponent(query)}&limit=${PER_SOURCE}&offset=${offset}&lang=en`;
-    const res = await fetch(url, { headers: { apiKey: NPM_API_KEY } });
+    const params = new URLSearchParams({
+      q: query,
+      api_key: "DEMO_KEY",
+      rows: PER_SOURCE,
+      start,
+      online_media_type: "Images",
+    });
+    const url = `https://api.si.edu/openaccess/api/v1.0/search?${params}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
     const data = await res.json();
-    const list = data.data || data.artworks || data.results || [];
-    if (!list.length) return [];
-    return list.map(a => {
-      const img = a.image_url || a.imageUrl || a.thumbnail || a.photo;
-      if (!img) return null;
+    const rows = data.response?.rows || [];
+    return rows.map(item => {
+      const desc = item.content?.descriptiveNonRepeating || {};
+      const media = desc.online_media?.media?.[0];
+      const imgUrl = media?.thumbnail;
+      if (!imgUrl) return null;
       return {
-        id: `npm-${a.id || a.objectId || a.accessionNo}`, source: "npm",
-        title: a.name || a.title || a.objectName || "Untitled",
-        artist: a.creator || a.artist || a.maker || null,
-        date: a.date || a.creation_date || null,
-        culture: a.dynasty || a.culture || null,
-        medium: a.material || a.medium || null,
-        period: a.period || a.dynasty || null,
-        imageUrl: img,
-        imageLarge: img,
-        link: a.url || "https://digitalarchive.npm.gov.tw/",
-        classification: a.type || a.classification || null,
+        id: `si-${item.id}`, source: "si",
+        title: item.title || "Untitled",
+        artist: item.content?.freetext?.name?.[0]?.content || null,
+        date: item.content?.freetext?.date?.[0]?.content || null,
+        culture: item.content?.freetext?.place?.[0]?.content || null,
+        medium: item.content?.freetext?.physicalDescription?.[0]?.content || null,
+        period: item.content?.freetext?.style_period?.[0]?.content || null,
+        imageUrl: imgUrl,
+        imageLarge: media?.content || imgUrl,
+        link: desc.record_link || "https://collections.si.edu/",
+        classification: item.content?.freetext?.objectType?.[0]?.content || null,
       };
     }).filter(Boolean);
-  } catch (e) { console.error("NPM error:", e); return []; }
+  } catch (e) { console.error("Smithsonian error:", e); return []; }
 }
 
 // Ordered most-specific first to avoid false matches (e.g. "teapot" before "pot")
@@ -374,7 +385,7 @@ function PotteryInspiration() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All Ceramics");
-  const [activeSources, setActiveSources] = useState(() => new Set(["met","va","aic","cma","jpsearch","npm"]));
+  const [activeSources, setActiveSources] = useState(() => new Set(["met","va","aic","cma","jpsearch","si"]));
   const [lightboxItem, setLightboxItem] = useState(null);
   const [loadedCount, setLoadedCount] = useState({});
   const [cols, setCols] = useState(3);
@@ -397,7 +408,7 @@ function PotteryInspiration() {
   const aicPageRef = useRef(1);
   const cmaSkipRef = useRef(0);
   const tomucoPageRef = useRef(1);
-  const npmPageRef = useRef(1);
+  const siStartRef = useRef(0);
   const currentQueryRef = useRef("");
   const activeSourcesRef = useRef(activeSources);
   const loadingMoreRef = useRef(false);
@@ -449,7 +460,7 @@ function PotteryInspiration() {
     aicPageRef.current = 1;
     cmaSkipRef.current = PER_SOURCE;
     tomucoPageRef.current = 1;
-    npmPageRef.current = 1;
+    siStartRef.current = PER_SOURCE;
 
     const metIds = sources.has("met") ? await getMetIds(query) : [];
     if (gen !== generationRef.current) return;
@@ -463,7 +474,7 @@ function PotteryInspiration() {
     if (sources.has("aic"))    fetchers.push(searchAIC(query, 1));
     if (sources.has("cma"))    fetchers.push(searchCleveland(query, 0));
     if (sources.has("jpsearch")) fetchers.push(searchJapanSearch(query, 1));
-    if (sources.has("npm"))      fetchers.push(searchNPM(query, 1));
+    if (sources.has("si"))       fetchers.push(searchSmithsonian(query, 0));
 
     try {
       const results = await Promise.allSettled(fetchers);
@@ -497,7 +508,8 @@ function PotteryInspiration() {
     const nextCMASkip = cmaSkipRef.current;
     cmaSkipRef.current = nextCMASkip + PER_SOURCE;
     const nextToMuCoPage = ++tomucoPageRef.current;
-    const nextNPMPage = ++npmPageRef.current;
+    const nextSIStart = siStartRef.current;
+    siStartRef.current = nextSIStart + PER_SOURCE;
 
     const fetchers = [];
     if (nextMetIds.length > 0) fetchers.push(fetchMetObjects(nextMetIds));
@@ -505,7 +517,7 @@ function PotteryInspiration() {
     if (sources.has("aic"))    fetchers.push(searchAIC(query, nextAICPage));
     if (sources.has("cma"))    fetchers.push(searchCleveland(query, nextCMASkip));
     if (sources.has("jpsearch")) fetchers.push(searchJapanSearch(query, nextToMuCoPage));
-    if (sources.has("npm"))      fetchers.push(searchNPM(query, nextNPMPage));
+    if (sources.has("si"))       fetchers.push(searchSmithsonian(query, nextSIStart));
 
     try {
       const results = await Promise.allSettled(fetchers);
