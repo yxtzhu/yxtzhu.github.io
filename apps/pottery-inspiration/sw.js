@@ -1,4 +1,4 @@
-const CACHE = 'pottery-inspiration-v1';
+const CACHE = 'pottery-inspiration-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icons/icon.svg', './icons/icon-maskable.svg'];
 
 self.addEventListener('install', e =>
