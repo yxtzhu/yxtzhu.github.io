@@ -187,12 +187,61 @@ const JPSEARCH_TYPE_ALLOW = /工芸|陶磁|陶器|磁器|焼|器|craft|ceramic|p
 // titles tend to be text-archive documents misclassified as image items.
 const JPSEARCH_CJK = /[\u3040-\u30FF\u4E00-\u9FFF]/;
 
+// English query terms → Japanese. Japan Search ranks native-language records
+// higher, and the CJK title filter above drops auto-translated English titles,
+// so sending English keywords leaves very few survivors. Keys must be lowercase.
+const JPSEARCH_EN_TO_JA = {
+  "ceramics": "陶磁", "ceramic": "陶磁",
+  "pottery": "陶器",
+  "stoneware": "炻器",
+  "porcelain": "磁器",
+  "vase": "花瓶",
+  "bowl": "鉢",
+  "tea bowl": "茶碗", "chawan": "茶碗",
+  "tenmoku": "天目",
+  "jar": "壺",
+  "bottle": "瓶",
+  "plate": "皿", "dish": "皿",
+  "teapot": "急須",
+  "ewer": "水注",
+  "celadon": "青磁", "celadon glaze": "青磁",
+  "raku": "楽焼", "raku ware": "楽焼",
+  "bizen": "備前", "bizen pottery": "備前焼",
+  "shigaraki": "信楽", "shigaraki ware": "信楽焼",
+  "song dynasty": "宋代",
+  "japanese": "日本",
+  "korean": "朝鮮",
+  "longquan": "龍泉",
+};
+
+function jpsearchTranslateQuery(query) {
+  const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return query;
+  const out = [];
+  let i = 0;
+  while (i < words.length) {
+    let matched = false;
+    for (let span = Math.min(3, words.length - i); span >= 1; span--) {
+      const phrase = words.slice(i, i + span).join(" ");
+      if (JPSEARCH_EN_TO_JA[phrase]) {
+        out.push(JPSEARCH_EN_TO_JA[phrase]);
+        i += span;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) { out.push(words[i]); i++; }
+  }
+  return out.join(" ");
+}
+
 async function searchJapanSearch(query, page = 1) {
   try {
     const batchSize = PER_SOURCE * 4;
     const from = (page - 1) * batchSize;
+    const jaQuery = jpsearchTranslateQuery(query);
     // mediatype=image filters at the API level — only image-type records returned
-    const params = new URLSearchParams({ keyword: query, size: batchSize, mediatype: "image" });
+    const params = new URLSearchParams({ keyword: jaQuery, size: batchSize, mediatype: "image" });
     if (from > 0) params.set("from", from);
     const url = `https://jpsearch.go.jp/api/item/search/jps-cross?${params}`;
     const res = await fetch(url);
