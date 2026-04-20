@@ -1,4 +1,4 @@
-const CACHE = 'pottery-inspiration-v2';
+const CACHE = 'pottery-inspiration-v3';
 const ASSETS = ['./', './index.html', './app.js', './manifest.json', './icons/icon.svg', './icons/icon-maskable.svg'];
 
 self.addEventListener('install', e =>
@@ -11,9 +11,20 @@ self.addEventListener('activate', e =>
   ).then(() => self.clients.claim()))
 );
 
+// Network-first for same-origin app shell so home-screen installs pick up
+// new deploys; fall back to cache only when offline. Cross-origin requests
+// (museum APIs, fonts, images) are handled by the browser directly.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  if (url.origin !== self.location.origin) return;
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request).then(response => {
+      if (response && response.status === 200) {
+        const clone = response.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone)).catch(() => {});
+      }
+      return response;
+    }).catch(() => caches.match(e.request))
   );
 });
