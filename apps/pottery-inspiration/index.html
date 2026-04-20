@@ -280,12 +280,13 @@ async function searchJapanSearch(query, page = 1) {
 
 async function searchSmithsonian(query, start = 0) {
   try {
+    // online_media_type is a Solr field, not a top-level URL param — passing it
+    // as `online_media_type=Images` returns 0 rows. It must live inside q=.
     const params = new URLSearchParams({
-      q: query,
+      q: `(${query}) AND online_media_type:Images`,
       api_key: "DEMO_KEY",
       rows: PER_SOURCE,
       start,
-      online_media_type: "Images",
     });
     const url = `https://api.si.edu/openaccess/api/v1.0/search?${params}`;
     const res = await fetch(url);
