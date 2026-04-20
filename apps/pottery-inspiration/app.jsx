@@ -514,30 +514,50 @@ function PotteryInspiration() {
     }
   };
 
+  const mergeImported = (parsed, emptyMsg) => {
+    if (parsed.length === 0) {
+      alert(emptyMsg);
+      return false;
+    }
+    const existingIds = new Set(favItems.map(i => i.id));
+    const added = parsed.filter(i => !existingIds.has(i.id));
+    const nextItems = [...favItems, ...added];
+    const nextIds = new Set(nextItems.map(i => i.id));
+    setFavItems(nextItems);
+    setFavorites(nextIds);
+    localStorage.setItem("pottery-favs", JSON.stringify([...nextIds]));
+    localStorage.setItem("pottery-fav-items", JSON.stringify(nextItems));
+    const dupes = parsed.length - added.length;
+    alert(`Imported ${added.length} favorite${added.length === 1 ? "" : "s"}${dupes ? ` (${dupes} already saved)` : ""}.`);
+    return true;
+  };
+
   const importFavorites = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     try {
       const text = await file.text();
-      const parsed = parseFavoritesMarkdown(text);
-      if (parsed.length === 0) {
-        alert("No favorites found in that file.");
-        return;
-      }
-      const existingIds = new Set(favItems.map(i => i.id));
-      const added = parsed.filter(i => !existingIds.has(i.id));
-      const nextItems = [...favItems, ...added];
-      const nextIds = new Set(nextItems.map(i => i.id));
-      setFavItems(nextItems);
-      setFavorites(nextIds);
-      localStorage.setItem("pottery-favs", JSON.stringify([...nextIds]));
-      localStorage.setItem("pottery-fav-items", JSON.stringify(nextItems));
-      const dupes = parsed.length - added.length;
-      alert(`Imported ${added.length} favorite${added.length === 1 ? "" : "s"}${dupes ? ` (${dupes} already saved)` : ""}.`);
+      mergeImported(parseFavoritesMarkdown(text), "No favorites found in that file.");
     } catch (err) {
       console.error(err);
       alert("Could not read that file. Make sure it's a Pottery Inspo export.");
+    }
+  };
+
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+
+  const importFromPaste = () => {
+    try {
+      const ok = mergeImported(parseFavoritesMarkdown(pasteText), "No favorites found in that text.");
+      if (ok) {
+        setPasteText("");
+        setPasteOpen(false);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Could not parse that text. Make sure it's a Pottery Inspo export.");
     }
   };
 
@@ -820,6 +840,12 @@ function PotteryInspiration() {
                 ↓ Import (.md)
                 <input type="file" accept=".md,.txt,text/markdown,text/plain" onChange={importFavorites} style={{ display:"none" }} />
               </label>
+              <button
+                onClick={() => setPasteOpen(true)}
+                style={{ padding:"6px 14px",borderRadius:4,border:"1px solid #2A2622",background:"transparent",color:"#9B9488",fontSize:11,fontWeight:500,letterSpacing:"0.02em",cursor:"pointer",fontFamily:"'DM Sans',system-ui,sans-serif" }}
+              >
+                ⎘ Paste
+              </button>
               <span style={{ fontSize:10,color:"#5A534A",letterSpacing:"0.05em" }}>
                 {favItems.length} saved · storage is per-device
               </span>
@@ -877,6 +903,45 @@ function PotteryInspiration() {
             <div style={{ textAlign:"center",padding:"24px 20px",color:"#3A3632",fontSize:11,letterSpacing:"0.05em" }}>— end of results —</div>
           )}
         </main>
+
+        {pasteOpen && (
+          <div
+            onClick={() => setPasteOpen(false)}
+            style={{ position:"fixed",inset:0,zIndex:1100,background:"rgba(15,12,10,0.92)",backdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",padding:24 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width:"100%",maxWidth:560,background:"#1E1B18",border:"1px solid #2A2622",borderRadius:8,padding:20,display:"flex",flexDirection:"column",gap:12 }}
+            >
+              <div style={{ display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:8 }}>
+                <div style={{ fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:22,fontWeight:500,color:"#E8E0D6",letterSpacing:"-0.01em" }}>Paste to import</div>
+                <button onClick={() => setPasteOpen(false)} aria-label="Close" style={{ background:"none",border:"none",color:"#7A7268",fontSize:20,cursor:"pointer",lineHeight:1 }}>×</button>
+              </div>
+              <div style={{ fontSize:12,color:"#7A7268",lineHeight:1.5 }}>
+                Paste the contents of a Pottery Inspo export (.md) below.
+              </div>
+              <textarea
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                placeholder={"# Pottery Inspo Favorites\n\n## Title\n- **ID:** met-12345\n- ..."}
+                autoFocus
+                rows={10}
+                style={{ width:"100%",padding:"10px 12px",borderRadius:4,border:"1px solid #2A2622",background:"#141210",color:"#D4CCC2",fontSize:12,fontFamily:"ui-monospace,SFMono-Regular,Menlo,monospace",outline:"none",resize:"vertical",minHeight:160,boxSizing:"border-box" }}
+              />
+              <div style={{ display:"flex",gap:8,justifyContent:"flex-end" }}>
+                <button
+                  onClick={() => { setPasteText(""); setPasteOpen(false); }}
+                  style={{ padding:"6px 14px",borderRadius:4,border:"1px solid #2A2622",background:"transparent",color:"#7A7268",fontSize:11,fontWeight:500,letterSpacing:"0.02em",cursor:"pointer",fontFamily:"'DM Sans',system-ui,sans-serif" }}
+                >Cancel</button>
+                <button
+                  onClick={importFromPaste}
+                  disabled={!pasteText.trim()}
+                  style={{ padding:"6px 14px",borderRadius:4,border:"1px solid #5A534A",background:pasteText.trim()?"#2A2622":"transparent",color:pasteText.trim()?"#E8E0D6":"#5A534A",fontSize:11,fontWeight:500,letterSpacing:"0.02em",cursor:pasteText.trim()?"pointer":"not-allowed",fontFamily:"'DM Sans',system-ui,sans-serif" }}
+                >Import</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Lightbox
           item={lightboxItem}
