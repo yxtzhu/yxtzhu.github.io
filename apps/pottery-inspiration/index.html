@@ -187,12 +187,41 @@ const JPSEARCH_TYPE_ALLOW = /工芸|陶磁|陶器|磁器|焼|器|craft|ceramic|p
 // titles tend to be text-archive documents misclassified as image items.
 const JPSEARCH_CJK = /[\u3040-\u30FF\u4E00-\u9FFF]/;
 
+// Translate English ceramic vocabulary into Japanese so queries hit records
+// whose metadata is only indexed in Japanese (which also tend to have CJK titles).
+const JPSEARCH_PHRASE_MAP = [
+  ["tea bowl", "茶碗"],
+  ["song dynasty", "宋"],
+  ["raku ware", "楽焼"],
+  ["bizen pottery", "備前焼"],
+  ["shigaraki ware", "信楽焼"],
+  ["longquan celadon", "龍泉青磁"],
+  ["celadon glaze", "青磁"],
+];
+const JPSEARCH_WORD_MAP = {
+  ceramics: "陶磁", ceramic: "陶磁",
+  pottery: "陶器", stoneware: "炻器", porcelain: "磁器",
+  chawan: "茶碗", tenmoku: "天目",
+  vase: "花瓶", bowl: "鉢", jar: "壺", bottle: "瓶",
+  plate: "皿", dish: "皿", teapot: "急須", ewer: "水注",
+  japanese: "日本", korean: "朝鮮", chinese: "中国",
+  celadon: "青磁", longquan: "龍泉",
+  raku: "楽", bizen: "備前", shigaraki: "信楽",
+  ware: "焼", glaze: "釉",
+};
+
+function translateJpSearchQuery(query) {
+  let q = query.toLowerCase();
+  for (const [en, ja] of JPSEARCH_PHRASE_MAP) q = q.split(en).join(ja);
+  return q.split(/\s+/).filter(Boolean).map(t => JPSEARCH_WORD_MAP[t] || t).join(" ");
+}
+
 async function searchJapanSearch(query, page = 1) {
   try {
     const batchSize = PER_SOURCE * 4;
     const from = (page - 1) * batchSize;
     // mediatype=image filters at the API level — only image-type records returned
-    const params = new URLSearchParams({ keyword: query, size: batchSize, mediatype: "image" });
+    const params = new URLSearchParams({ keyword: translateJpSearchQuery(query), size: batchSize, mediatype: "image" });
     if (from > 0) params.set("from", from);
     const url = `https://jpsearch.go.jp/api/item/search/jps-cross?${params}`;
     const res = await fetch(url);
