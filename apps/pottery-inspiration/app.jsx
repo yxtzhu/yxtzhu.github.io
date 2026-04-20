@@ -34,6 +34,72 @@ function shuffleArray(arr) {
   return a;
 }
 
+function buildFavoritesMarkdown(items) {
+  const date = new Date().toISOString().slice(0, 10);
+  const out = [
+    "# Pottery Inspo Favorites",
+    "",
+    `_Exported ${date}_ · _${items.length} item${items.length === 1 ? "" : "s"}_`,
+    "",
+  ];
+  for (const it of items) {
+    out.push("---", "", `## ${it.title || "Untitled"}`, "");
+    const fields = [
+      ["Source", SOURCES[it.source]?.name || it.source],
+      ["Artist", it.artist],
+      ["Date", it.date],
+      ["Culture", it.culture],
+      ["Medium", it.medium],
+      ["Period", it.period],
+      ["Classification", it.classification],
+      ["Link", it.link],
+      ["ID", it.id],
+      ["Image", it.imageUrl],
+      ["Image (large)", it.imageLarge],
+    ];
+    for (const [label, val] of fields) {
+      if (val) out.push(`- **${label}:** ${val}`);
+    }
+    out.push("");
+  }
+  return out.join("\n");
+}
+
+function parseFavoritesMarkdown(md) {
+  const sections = md.split(/\n##\s+/).slice(1);
+  const out = [];
+  for (const sec of sections) {
+    const lines = sec.split("\n");
+    const title = (lines.shift() || "").trim();
+    const fields = {};
+    for (const line of lines) {
+      const m = line.match(/^-\s+\*\*(.+?):\*\*\s+(.+)$/);
+      if (m) fields[m[1].trim()] = m[2].trim();
+    }
+    const id = fields["ID"];
+    if (!id) continue;
+    // id is emitted as `${sourceKey}-${rest}` in every fetcher, so the prefix
+    // before the first "-" is the canonical source key even when Source label
+    // holds the human name like "The Met".
+    const source = id.split("-")[0];
+    out.push({
+      id,
+      source,
+      title: title || "Untitled",
+      artist: fields["Artist"] || null,
+      date: fields["Date"] || null,
+      culture: fields["Culture"] || null,
+      medium: fields["Medium"] || null,
+      period: fields["Period"] || null,
+      classification: fields["Classification"] || null,
+      link: fields["Link"] || null,
+      imageUrl: fields["Image"] || fields["Image (large)"] || null,
+      imageLarge: fields["Image (large)"] || fields["Image"] || null,
+    });
+  }
+  return out;
+}
+
 async function getMetIds(query) {
   try {
     const res = await fetch(
@@ -425,6 +491,56 @@ function PotteryInspiration() {
     });
   };
 
+  const exportFavorites = async () => {
+    if (favItems.length === 0) return;
+    const md = buildFavoritesMarkdown(favItems);
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `pottery-favorites-${date}.md`;
+    const blob = new Blob([md], { type: "text/markdown" });
+    try {
+      const file = new File([blob], filename, { type: "text/markdown" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Pottery Favorites" });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+      console.error("Export failed:", e);
+    }
+  };
+
+  const importFavorites = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = parseFavoritesMarkdown(text);
+      if (parsed.length === 0) {
+        alert("No favorites found in that file.");
+        return;
+      }
+      const existingIds = new Set(favItems.map(i => i.id));
+      const added = parsed.filter(i => !existingIds.has(i.id));
+      const nextItems = [...favItems, ...added];
+      const nextIds = new Set(nextItems.map(i => i.id));
+      setFavItems(nextItems);
+      setFavorites(nextIds);
+      localStorage.setItem("pottery-favs", JSON.stringify([...nextIds]));
+      localStorage.setItem("pottery-fav-items", JSON.stringify(nextItems));
+      const dupes = parsed.length - added.length;
+      alert(`Imported ${added.length} favorite${added.length === 1 ? "" : "s"}${dupes ? ` (${dupes} already saved)` : ""}.`);
+    } catch (err) {
+      console.error(err);
+      alert("Could not read that file. Make sure it's a Pottery Inspo export.");
+    }
+  };
+
   useEffect(() => {
     const h = () => setCols(window.innerWidth > 900 ? 3 : window.innerWidth > 560 ? 2 : 1);
     h(); window.addEventListener("resize", h);
@@ -690,6 +806,30 @@ function PotteryInspiration() {
         </header>
 
         <main style={{ maxWidth:1200,margin:"0 auto",padding:`0 28px calc(env(safe-area-inset-bottom, 0px) + 60px)` }}>
+          {showFavorites && (
+            <div style={{ display:"flex",gap:8,flexWrap:"wrap",marginBottom:20,alignItems:"center" }}>
+              {favItems.length > 0 && (
+                <button
+                  onClick={exportFavorites}
+                  style={{ padding:"6px 14px",borderRadius:4,border:"1px solid #2A2622",background:"transparent",color:"#9B9488",fontSize:11,fontWeight:500,letterSpacing:"0.02em",cursor:"pointer",fontFamily:"'DM Sans',system-ui,sans-serif" }}
+                >
+                  ↑ Export (.md)
+                </button>
+              )}
+              <label style={{ padding:"6px 14px",borderRadius:4,border:"1px solid #2A2622",background:"transparent",color:"#9B9488",fontSize:11,fontWeight:500,letterSpacing:"0.02em",cursor:"pointer",fontFamily:"'DM Sans',system-ui,sans-serif" }}>
+                ↓ Import (.md)
+                <input type="file" accept=".md,.txt,text/markdown,text/plain" onChange={importFavorites} style={{ display:"none" }} />
+              </label>
+              <span style={{ fontSize:10,color:"#5A534A",letterSpacing:"0.05em" }}>
+                {favItems.length} saved · storage is per-device
+              </span>
+            </div>
+          )}
+          {showFavorites && favItems.length === 0 && (
+            <div style={{ textAlign:"center",padding:"60px 20px",color:"#5A534A",fontSize:13 }}>
+              No favorites yet. Tap ♡ on any piece to save it, or import a previous export.
+            </div>
+          )}
           {loading && items.length === 0 && (
             <div style={{ textAlign:"center",padding:"80px 20px",color:"#5A534A" }}>
               <div style={{ width:24,height:24,border:"2px solid #3A3632",borderTopColor:"#7A7268",borderRadius:"50%",margin:"0 auto 16px",animation:"spin 0.8s linear infinite" }} />
