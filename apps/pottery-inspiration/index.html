@@ -183,6 +183,9 @@ async function searchCleveland(query, skip = 0) {
 
 // Allowlist: only accept items whose type contains craft/object/ceramic vocabulary
 const JPSEARCH_TYPE_ALLOW = /工芸|陶磁|陶器|磁器|焼|器|craft|ceramic|pottery|stoneware|porcelain|ware|object|artifact|sculpture|painting|print|drawing/i;
+// Ceramic records on Japan Search almost always carry CJK titles; romanized/English-only
+// titles tend to be text-archive documents misclassified as image items.
+const JPSEARCH_CJK = /[\u3040-\u30FF\u4E00-\u9FFF]/;
 
 async function searchJapanSearch(query, page = 1) {
   try {
@@ -205,6 +208,7 @@ async function searchJapanSearch(query, page = 1) {
       // Only keep items whose type explicitly signals a physical/visual artifact
       if (itemType && !JPSEARCH_TYPE_ALLOW.test(itemType)) return null;
       const title = Array.isArray(c.title) ? c.title[0] : (c.title || "Untitled");
+      if (!JPSEARCH_CJK.test(title)) return null;
       const artist = Array.isArray(c.creator) ? c.creator[0] : (c.creator || null);
       return {
         id: `jpsearch-${item.id || Math.random().toString(36).slice(2)}`,
