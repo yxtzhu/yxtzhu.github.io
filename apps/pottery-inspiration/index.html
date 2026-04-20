@@ -30,7 +30,22 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
+      // updateViaCache:'none' bypasses the HTTP cache for sw.js so new
+      // deploys install on the next launch of a home-screen shortcut.
+      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+        .then(reg => { reg.update().catch(() => {}); })
+        .catch(() => {});
+      // If this page was already controlled by an SW, a controllerchange
+      // means a new SW took over after updating — reload once so the user
+      // sees the latest code instead of the already-loaded old bundle.
+      if (navigator.serviceWorker.controller) {
+        let reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (reloading) return;
+          reloading = true;
+          window.location.reload();
+        });
+      }
     });
   }
 </script>
