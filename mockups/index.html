@@ -297,9 +297,15 @@ const V4 = () => {
 };
 
 /* ─── V5 · Terminal listing ───────────────────────────── */
+const featured = [
+  { id: "pottery-inspiration",      desc: "Browse ceramics from The Met, V&A, and Art Institute of Chicago." },
+  { id: "meeting-cost-calculator",  desc: "Watch your meeting budget burn in real time." },
+  { id: "life-perspective",         desc: "A quiet reflection on the time you have — counted in meals." },
+];
+
 const V5 = () => {
   const [typed, setTyped] = useState("");
-  const full = "ls ~/web-apps";
+  const full = "ls ~/web-apps/featured";
   useEffect(() => {
     let i = 0;
     const t = setInterval(() => {
@@ -309,10 +315,11 @@ const V5 = () => {
     }, 80);
     return () => clearInterval(t);
   }, []);
+  const done = typed === full;
   return (
     <SectionShell id="v5" label="VARIANT · 05 — TERMINAL" title="Web Apps">
       <div style={{
-        maxWidth: 640, margin: "0 auto",
+        maxWidth: 720, margin: "0 auto",
         fontFamily: "'SF Mono', ui-monospace, monospace",
         fontSize: 14, color: palette.inkSoft,
         padding: 32,
@@ -330,15 +337,39 @@ const V5 = () => {
             animation: "blink 0.85s step-end infinite",
           }}/>
         </div>
-        {typed === full && apps.map((a, i) => (
-          <div key={a.id} style={{
-            padding: "4px 0", opacity: 0,
-            animation: `rowIn 0.5s ease ${i * 0.12}s forwards`,
-          }}>
-            <span style={{ color: palette.accent, display: "inline-block", width: 240 }}>{a.id}</span>
-            <span style={{ color: palette.inkFaint }}>{a.tagline}</span>
-          </div>
+        {done && featured.map((a, i) => (
+          <a key={a.id}
+             href={`/apps/${a.id}/`}
+             style={{
+               display: "block",
+               padding: "6px 0",
+               opacity: 0,
+               textDecoration: "none",
+               animation: `rowIn 0.5s ease ${i * 0.15}s forwards`,
+             }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "baseline", flexWrap: "wrap" }}>
+              <span style={{ color: palette.accent, minWidth: 240 }}>{a.id}</span>
+              <span style={{ color: palette.inkSoft, flex: 1, minWidth: 240 }}>{a.desc}</span>
+            </div>
+          </a>
         ))}
+        {done && (
+          <div style={{
+            padding: "14px 0 0",
+            marginTop: 10,
+            borderTop: `1px dashed ${palette.inkGhost}`,
+            opacity: 0,
+            animation: `rowIn 0.5s ease ${featured.length * 0.15 + 0.1}s forwards`,
+          }}>
+            <a href="/apps/" style={{
+              color: palette.inkFaint,
+              textDecoration: "none",
+            }}>
+              <span style={{ color: palette.accent }}>$</span>
+              {" "}# open the launcher →
+            </a>
+          </div>
+        )}
       </div>
     </SectionShell>
   );
