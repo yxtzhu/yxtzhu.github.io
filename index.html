@@ -268,6 +268,85 @@ body {
   .contact-secondary { flex-direction: column; align-items: center; gap: 16px; }
 }
 
+/* ─── Web Apps Terminal ─── */
+.webapps-section {
+  display: block;
+  min-height: 100vh;
+  padding: 100px 48px 100px;
+}
+.webapps-section .breath-content {
+  max-width: 700px;
+  margin: 0 auto 60px;
+}
+.terminal-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.9s cubic-bezier(0.16,1,0.3,1), transform 0.9s cubic-bezier(0.16,1,0.3,1);
+}
+.terminal-wrap.terminal-visible { opacity: 1; transform: translateY(0); }
+.terminal {
+  font-family: 'SF Mono', ui-monospace, 'Menlo', monospace;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  padding: 28px 32px;
+  border: 1px solid var(--ink-ghost);
+  border-radius: 2px;
+  line-height: 1.9;
+}
+.terminal-prompt { color: var(--ink-faint); margin-bottom: 10px; }
+.terminal-prompt .t-user { color: var(--accent); }
+.terminal-prompt .t-cmd { color: var(--ink); }
+.terminal-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: var(--ink-soft);
+  margin-left: 3px;
+  vertical-align: middle;
+  animation: cursorBlink 0.85s step-end infinite;
+}
+.terminal-cursor.hidden { animation: none; opacity: 0; }
+.terminal-row {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  padding: 5px 0;
+  text-decoration: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.5s ease, transform 0.5s ease, color 0.3s;
+  flex-wrap: wrap;
+}
+.terminal-row.visible { opacity: 1; transform: translateY(0); }
+.terminal-row .t-id { color: var(--accent); min-width: 230px; flex-shrink: 0; }
+.terminal-row .t-desc { color: var(--ink-soft); flex: 1; min-width: 220px; }
+.terminal-row:hover .t-id { color: var(--ink); }
+.terminal-row:hover .t-desc { color: var(--ink); }
+.terminal-launcher {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--ink-ghost);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.terminal-launcher.visible { opacity: 1; }
+.terminal-launcher a {
+  color: var(--ink-faint);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+.terminal-launcher a:hover { color: var(--ink); }
+.terminal-launcher .t-dollar { color: var(--accent); }
+
+@media (max-width: 640px) {
+  .webapps-section { padding: 80px 24px; }
+  .terminal { padding: 22px 20px; font-size: 12.5px; }
+  .terminal-row .t-id { min-width: 100%; }
+}
+
 /* ─── Pottery Gallery ─── */
 .gallery-section {
   display: block;
@@ -486,12 +565,27 @@ body {
   </div>
 </section>
 
-<!-- 4: Project 1 -->
-<section class="breath" data-section="3">
+<!-- 4: Project 1 · Web Apps -->
+<section class="breath webapps-section" data-section="3">
   <div class="breath-content" style="text-align:center;">
     <div class="project-number" id="pNum1"></div>
     <h2 class="project-name" id="pName1"></h2>
     <p class="project-type" id="pType1"></p>
+  </div>
+  <div class="terminal-wrap" id="terminalWrap">
+    <div class="terminal">
+      <div class="terminal-prompt">
+        <span class="t-user">tingting</span>
+        <span> ~ </span>
+        <span class="t-cmd">$ <span id="tCmd"></span></span><span class="terminal-cursor" id="tCursor"></span>
+      </div>
+      <div id="terminalRows"></div>
+      <div class="terminal-launcher" id="terminalLauncher">
+        <a href="/apps/">
+          <span class="t-dollar">$</span> # open the launcher &rarr;
+        </a>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -658,10 +752,12 @@ const sections = [
       }, 300);
     }
   },
-  // 3: Project 1
+  // 3: Project 1 · Web Apps (typed header + terminal listing)
   {
     init: (done) => {
-      typeProject('pNum1', '001', 'pName1', 'Web Apps', 'pType1', '—', done);
+      typeProject('pNum1', '001', 'pName1', 'Web Apps', 'pType1', '—', () => {
+        setTimeout(() => { initWebAppsTerminal(done); }, 400);
+      });
     }
   },
   // 4: Project 2 + Gallery
@@ -690,6 +786,49 @@ const sections = [
     }
   },
 ];
+
+// === Web Apps Terminal ===
+const featuredApps = {{ site.data.apps | jsonify }};
+
+function initWebAppsTerminal(done) {
+  const wrap = document.getElementById('terminalWrap');
+  const cmdEl = document.getElementById('tCmd');
+  const cursor = document.getElementById('tCursor');
+  const rowsEl = document.getElementById('terminalRows');
+  const launcher = document.getElementById('terminalLauncher');
+  if (!wrap || wrap.dataset.started) { if (done) done(); return; }
+  wrap.dataset.started = '1';
+  wrap.classList.add('terminal-visible');
+
+  const cmd = 'ls ~/web-apps/featured';
+  let i = 0;
+  const typeInterval = setInterval(() => {
+    i++;
+    cmdEl.textContent = cmd.slice(0, i);
+    if (i >= cmd.length) {
+      clearInterval(typeInterval);
+      setTimeout(() => {
+        cursor.classList.add('hidden');
+        revealRows();
+      }, 300);
+    }
+  }, 70);
+
+  function revealRows() {
+    featuredApps.forEach((a, idx) => {
+      const row = document.createElement('a');
+      row.className = 'terminal-row';
+      row.href = `/apps/${a.id}/`;
+      row.innerHTML = `<span class="t-id">${a.id}</span><span class="t-desc">${a.desc}</span>`;
+      rowsEl.appendChild(row);
+      setTimeout(() => row.classList.add('visible'), 80 + idx * 180);
+    });
+    setTimeout(() => {
+      launcher.classList.add('visible');
+      if (done) done();
+    }, 80 + featuredApps.length * 180 + 200);
+  }
+}
 
 function typeProject(numId, numText, nameId, nameText, typeId, typeText, done) {
   const numTyper = new Typewriter(document.getElementById(numId), {

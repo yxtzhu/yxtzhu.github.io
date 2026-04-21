@@ -1,0 +1,13 @@
+# Featured web apps shown on the landing page terminal block.
+# Edit this file to change order, descriptions, or which apps appear.
+#
+# Each entry needs:
+#   id    -> slug matching the folder under /apps/ (also the URL)
+#   desc  -> short sentence shown after the slug in the terminal listing
+#
+- id: pottery-inspiration
+  desc: Browse ceramics from The Met, V&A, Art Institute of Chicago, and Tokyo National Museum.
+- id: meeting-cost-calculator
+  desc: Watch your meeting budget burn in real time.
+- id: life-perspective
+  desc: A quiet reflection on the time you have — counted in meals.
