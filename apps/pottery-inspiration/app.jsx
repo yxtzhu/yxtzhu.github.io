@@ -457,9 +457,18 @@ function PotteryInspiration() {
     try { return JSON.parse(localStorage.getItem("pottery-fav-items") || "[]"); }
     catch { return []; }
   });
-  const [challengeMode, setChallengeMode] = useState("favorites"); // "favorites" | "all"
-  const [challengeForm, setChallengeForm] = useState(null);
-  const [challengeSurface, setChallengeSurface] = useState(null);
+  const [challengeMode, setChallengeMode] = useState(() => {
+    try { return localStorage.getItem("pottery-challenge-mode") || "favorites"; }
+    catch { return "favorites"; }
+  });
+  const [challengeForm, setChallengeForm] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pottery-challenge-form") || "null"); }
+    catch { return null; }
+  });
+  const [challengeSurface, setChallengeSurface] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pottery-challenge-surface") || "null"); }
+    catch { return null; }
+  });
 
   const abortRef = useRef(null);
   const metIdsRef = useRef([]);
@@ -719,11 +728,15 @@ function PotteryInspiration() {
     if (pool.length < 2) {
       setChallengeForm(null);
       setChallengeSurface(null);
+      localStorage.removeItem("pottery-challenge-form");
+      localStorage.removeItem("pottery-challenge-surface");
       return;
     }
     const shuffled = shuffleArray(pool);
     setChallengeForm(shuffled[0]);
     setChallengeSurface(shuffled[1]);
+    localStorage.setItem("pottery-challenge-form", JSON.stringify(shuffled[0]));
+    localStorage.setItem("pottery-challenge-surface", JSON.stringify(shuffled[1]));
   }, [challengeMode, favItems, items]);
 
   useEffect(() => {
@@ -738,6 +751,9 @@ function PotteryInspiration() {
     setChallengeMode(mode);
     setChallengeForm(null);
     setChallengeSurface(null);
+    localStorage.setItem("pottery-challenge-mode", mode);
+    localStorage.removeItem("pottery-challenge-form");
+    localStorage.removeItem("pottery-challenge-surface");
   };
 
   const toggleSource = (key) => {
