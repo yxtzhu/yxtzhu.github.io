@@ -449,12 +449,17 @@ function PotteryInspiration() {
     try { return new Set(JSON.parse(localStorage.getItem("pottery-favs") || "[]")); }
     catch { return new Set(); }
   });
-  const [showFavorites, setShowFavorites] = useState(false);
+  const [view, setView] = useState("browse"); // "browse" | "favorites" | "challenge"
+  const showFavorites = view === "favorites";
+  const showChallenge = view === "challenge";
   const [originItem, setOriginItem] = useState(null);
   const [favItems, setFavItems] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pottery-fav-items") || "[]"); }
     catch { return []; }
   });
+  const [challengeMode, setChallengeMode] = useState("favorites"); // "favorites" | "all"
+  const [challengeForm, setChallengeForm] = useState(null);
+  const [challengeSurface, setChallengeSurface] = useState(null);
 
   const abortRef = useRef(null);
   const metIdsRef = useRef([]);
@@ -695,19 +700,45 @@ function PotteryInspiration() {
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel || !hasMore || loading || showFavorites) return;
+    if (!sentinel || !hasMore || loading || showFavorites || showChallenge) return;
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) fetchMore(); },
       { rootMargin: "300px" }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loading, fetchMore, showFavorites]);
+  }, [hasMore, loading, fetchMore, showFavorites, showChallenge]);
 
   useEffect(() => {
-    if (showFavorites) return;
+    if (showFavorites || showChallenge) return;
     if (activeSources.size > 0) fetchResults(activeCategory, activeSources);
-  }, [activeCategory, activeSources, fetchResults, showFavorites]);
+  }, [activeCategory, activeSources, fetchResults, showFavorites, showChallenge]);
+
+  const generateChallenge = useCallback(() => {
+    const pool = challengeMode === "favorites" ? favItems : items;
+    if (pool.length < 2) {
+      setChallengeForm(null);
+      setChallengeSurface(null);
+      return;
+    }
+    const shuffled = shuffleArray(pool);
+    setChallengeForm(shuffled[0]);
+    setChallengeSurface(shuffled[1]);
+  }, [challengeMode, favItems, items]);
+
+  useEffect(() => {
+    if (!showChallenge) return;
+    if (challengeForm && challengeSurface) return;
+    const pool = challengeMode === "favorites" ? favItems : items;
+    if (pool.length >= 2) generateChallenge();
+  }, [showChallenge, challengeMode, favItems, items, challengeForm, challengeSurface, generateChallenge]);
+
+  const switchChallengeMode = (mode) => {
+    if (mode === challengeMode) return;
+    setChallengeMode(mode);
+    setChallengeForm(null);
+    setChallengeSurface(null);
+  };
 
   const toggleSource = (key) => {
     setActiveSources(prev => {
@@ -731,41 +762,60 @@ function PotteryInspiration() {
       `}</style>
       <div style={{ minHeight:"100vh",background:"#141210",color:"#D4CCC2",fontFamily:"'DM Sans',system-ui,sans-serif" }}>
 
-        <button
-          onClick={() => setShowFavorites(v => !v)}
-          aria-label={showFavorites ? "Show all" : `Favorites (${favItems.length})`}
-          style={{
-            position:"fixed",top:"calc(env(safe-area-inset-top, 0px) + 12px)",right:16,zIndex:200,
-            width:40,height:40,borderRadius:"50%",
-            border:showFavorites?"1.5px solid #E8A0A0":"1.5px solid #3A3632",
-            background:showFavorites?"rgba(232,160,160,0.15)":"rgba(20,18,16,0.85)",
-            color:showFavorites?"#E8A0A0":"#7A7268",
-            cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",
-            backdropFilter:"blur(8px)",transition:"all 0.2s ease",
-          }}
-        >
-          {showFavorites ? "♥" : "♡"}
-          {favItems.length > 0 && (
-            <span style={{
-              position:"absolute",top:-3,right:-3,
-              background:"#E8A0A0",color:"#141210",
-              fontSize:8,fontWeight:700,lineHeight:1,
-              minWidth:14,height:14,borderRadius:7,
-              display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",
-              fontFamily:"'DM Sans',system-ui,sans-serif",
-            }}>{favItems.length}</span>
-          )}
-        </button>
+        <div style={{ position:"fixed",top:"calc(env(safe-area-inset-top, 0px) + 12px)",right:16,zIndex:200,display:"flex",gap:8 }}>
+          <button
+            onClick={() => setView(v => v === "challenge" ? "browse" : "challenge")}
+            aria-label={showChallenge ? "Show all" : "Pottery challenge"}
+            style={{
+              width:40,height:40,borderRadius:"50%",
+              border:showChallenge?"1.5px solid #C9A96E":"1.5px solid #3A3632",
+              background:showChallenge?"rgba(201,169,110,0.15)":"rgba(20,18,16,0.85)",
+              color:showChallenge?"#C9A96E":"#7A7268",
+              cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",
+              backdropFilter:"blur(8px)",transition:"all 0.2s ease",
+            }}
+          >✦</button>
+          <button
+            onClick={() => setView(v => v === "favorites" ? "browse" : "favorites")}
+            aria-label={showFavorites ? "Show all" : `Favorites (${favItems.length})`}
+            style={{
+              position:"relative",
+              width:40,height:40,borderRadius:"50%",
+              border:showFavorites?"1.5px solid #E8A0A0":"1.5px solid #3A3632",
+              background:showFavorites?"rgba(232,160,160,0.15)":"rgba(20,18,16,0.85)",
+              color:showFavorites?"#E8A0A0":"#7A7268",
+              cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",
+              backdropFilter:"blur(8px)",transition:"all 0.2s ease",
+            }}
+          >
+            {showFavorites ? "♥" : "♡"}
+            {favItems.length > 0 && (
+              <span style={{
+                position:"absolute",top:-3,right:-3,
+                background:"#E8A0A0",color:"#141210",
+                fontSize:8,fontWeight:700,lineHeight:1,
+                minWidth:14,height:14,borderRadius:7,
+                display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",
+                fontFamily:"'DM Sans',system-ui,sans-serif",
+              }}>{favItems.length}</span>
+            )}
+          </button>
+        </div>
 
         <header style={{ padding:`calc(env(safe-area-inset-top, 0px) + 40px) 28px 0`,maxWidth:1200,margin:"0 auto" }}>
           <div style={{ fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.2em",color:"#6A6258",marginBottom:8 }}>Pottery Inspo</div>
           <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:38,fontWeight:400,lineHeight:1.15,color:"#E8E0D6",margin:"0 0 6px",letterSpacing:"-0.02em" }}>
-            Across Collections
+            {showChallenge ? "Throwing Challenge" : showFavorites ? "Saved Pieces" : "Across Collections"}
           </h1>
-          <p style={{ fontSize:13,color:"#7A7268",maxWidth:540,lineHeight:1.55,margin:"0 0 28px" }}>
-            Pulling ceramics from up to five museum open-access APIs. Tap any piece to see details, medium, and provenance.
+          <p style={{ fontSize:13,color:"#7A7268",maxWidth:540,lineHeight:1.55,margin:`0 0 ${(showFavorites || showChallenge) ? 32 : 28}px` }}>
+            {showChallenge
+              ? "Two pieces drawn at random — combine the form of one with the surfacing of the other."
+              : showFavorites
+                ? "Pieces you've saved. Stored locally, exportable as Markdown."
+                : "Pulling ceramics from up to five museum open-access APIs. Tap any piece to see details, medium, and provenance."}
           </p>
 
+          {!showFavorites && !showChallenge && (<>
           <div className="pills-scroll" style={{ display:"flex",gap:8,flexWrap:"nowrap",overflowX:"auto",marginBottom:20,scrollbarWidth:"none",msOverflowStyle:"none" }}>
             {Object.entries(SOURCES).map(([key,src]) => {
               const active = activeSources.has(key);
@@ -796,7 +846,7 @@ function PotteryInspiration() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && searchQuery.trim()) {
                   setOriginItem(null);
-                  setShowFavorites(false);
+                  setView("browse");
                   fetchResults(activeCategory, activeSources, searchQuery.trim());
                 }
               }}
@@ -823,6 +873,7 @@ function PotteryInspiration() {
               cursor:loading?"wait":"pointer",transition:"all 0.15s ease",letterSpacing:"0.01em",
             }}>{loading ? "Loading\u2026" : "\u21bb Refresh"}</button>
           </div>
+          </>)}
         </header>
 
         <main style={{ maxWidth:1200,margin:"0 auto",padding:`0 28px calc(env(safe-area-inset-bottom, 0px) + 60px)` }}>
@@ -868,7 +919,7 @@ function PotteryInspiration() {
             </div>
           )}
 
-          {originItem && !showFavorites && (
+          {originItem && !showFavorites && !showChallenge && (
             <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:20,padding:"10px 14px",borderRadius:6,background:"#1E1B18",border:"1px solid #2A2622" }}>
               <button
                 onClick={() => setLightboxItem(originItem)}
@@ -885,13 +936,81 @@ function PotteryInspiration() {
             </div>
           )}
 
-          <div style={{ columnCount:cols, columnGap:16 }}>
-            {(showFavorites ? favItems : items).map(item => (
-              <Card key={item.id} item={item} onClick={setLightboxItem} onToggleFav={toggleFavorite} isFav={favorites.has(item.id)} />
-            ))}
-          </div>
+          {showChallenge && (() => {
+            const pool = challengeMode === "favorites" ? favItems : items;
+            const poolLabel = challengeMode === "favorites" ? `Favorites (${favItems.length})` : `All Sources (${items.length})`;
+            const canGenerate = pool.length >= 2;
+            return (
+              <>
+                <div style={{ display:"flex",gap:10,marginBottom:24,alignItems:"center",flexWrap:"wrap" }}>
+                  <div style={{ display:"flex",border:"1px solid #2A2622",borderRadius:20,padding:2 }}>
+                    {[["favorites", `Favorites (${favItems.length})`], ["all", `All Sources (${items.length})`]].map(([mode, label]) => (
+                      <button key={mode} onClick={() => switchChallengeMode(mode)} style={{
+                        padding:"5px 14px",borderRadius:18,border:"none",
+                        background: challengeMode === mode ? "#C9A96E" : "transparent",
+                        color: challengeMode === mode ? "#141210" : "#7A7268",
+                        fontSize:11,fontWeight:600,cursor:"pointer",letterSpacing:"0.02em",
+                        fontFamily:"'DM Sans',system-ui,sans-serif",transition:"all 0.15s ease",
+                      }}>{label}</button>
+                    ))}
+                  </div>
+                  <button onClick={generateChallenge} disabled={!canGenerate} style={{
+                    marginLeft:"auto",padding:"7px 18px",borderRadius:4,border:"1px solid #5A534A",
+                    background:canGenerate?"#2A2622":"transparent",
+                    color:canGenerate?"#E8E0D6":"#3A3632",
+                    fontSize:11,fontWeight:600,cursor:canGenerate?"pointer":"not-allowed",
+                    letterSpacing:"0.08em",fontFamily:"'DM Sans',system-ui,sans-serif",textTransform:"uppercase",
+                  }}>↻ Generate</button>
+                </div>
 
-          {!showFavorites && <div ref={sentinelRef} style={{ height:1 }} />}
+                {!canGenerate ? (
+                  <div style={{ textAlign:"center",padding:"60px 20px",color:"#5A534A",fontSize:13,lineHeight:1.7 }}>
+                    {challengeMode === "favorites"
+                      ? "Save at least two favorites to generate a challenge. Tap ♡ on any piece in the browse view."
+                      : "Loading pottery from the museum APIs — give it a moment, or browse a category first to populate the pool."}
+                  </div>
+                ) : (challengeForm && challengeSurface) ? (
+                  <div style={{ display:"grid",gridTemplateColumns: cols >= 2 ? "1fr 1fr" : "1fr",gap:20,marginBottom:24 }}>
+                    {[
+                      { item: challengeForm, role: "Form", caption: "study the silhouette, proportions, foot, and lip" },
+                      { item: challengeSurface, role: "Surfacing", caption: "study glaze, slip, decoration, and texture" },
+                    ].map(({ item, role, caption }) => {
+                      const src = SOURCES[item.source];
+                      return (
+                        <div key={role} onClick={() => setLightboxItem(item)} style={{ cursor:"zoom-in",borderRadius:6,overflow:"hidden",background:"#1E1B18",border:"1px solid #2A2622" }}>
+                          <div style={{ padding:"14px 16px 12px",borderBottom:"1px solid #2A2622" }}>
+                            <div style={{ fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.2em",color:"#C9A96E",marginBottom:4 }}>{role}</div>
+                            <div style={{ fontSize:12,color:"#7A7268",fontStyle:"italic",fontFamily:"'Cormorant Garamond',Georgia,serif",lineHeight:1.4 }}>{caption}</div>
+                          </div>
+                          <img src={item.imageUrl} alt={item.title} style={{ width:"100%",display:"block" }} />
+                          <div style={{ padding:"12px 16px 14px" }}>
+                            <div style={{ fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:17,fontWeight:500,lineHeight:1.3,color:"#D4CCC2",marginBottom:6 }}>{item.title}</div>
+                            <div style={{ display:"flex",alignItems:"center",gap:6,flexWrap:"wrap" }}>
+                              <span style={{ fontSize:9,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.1em",color:src.accent }}>{src.name}</span>
+                              {item.date && (<><span style={{color:"#5A534A",fontSize:9}}>·</span><span style={{fontSize:10,color:"#7A7268"}}>{item.date}</span></>)}
+                              {item.culture && (<><span style={{color:"#5A534A",fontSize:9}}>·</span><span style={{fontSize:10,color:"#7A7268"}}>{item.culture}</span></>)}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ textAlign:"center",padding:"60px 20px",color:"#5A534A",fontSize:13 }}>Drawing two pieces…</div>
+                )}
+              </>
+            );
+          })()}
+
+          {!showChallenge && (
+            <div style={{ columnCount:cols, columnGap:16 }}>
+              {(showFavorites ? favItems : items).map(item => (
+                <Card key={item.id} item={item} onClick={setLightboxItem} onToggleFav={toggleFavorite} isFav={favorites.has(item.id)} />
+              ))}
+            </div>
+          )}
+
+          {!showFavorites && !showChallenge && <div ref={sentinelRef} style={{ height:1 }} />}
 
           {loadingMore && (
             <div style={{ textAlign:"center",padding:"32px 20px",color:"#5A534A" }}>
@@ -899,7 +1018,7 @@ function PotteryInspiration() {
               <div style={{ fontSize:12 }}>Loading more\u2026</div>
             </div>
           )}
-          {!hasMore && !loading && !loadingMore && items.length > 0 && !showFavorites && (
+          {!hasMore && !loading && !loadingMore && items.length > 0 && !showFavorites && !showChallenge && (
             <div style={{ textAlign:"center",padding:"24px 20px",color:"#3A3632",fontSize:11,letterSpacing:"0.05em" }}>— end of results —</div>
           )}
         </main>
@@ -957,7 +1076,7 @@ function PotteryInspiration() {
               : (item.classification || "ceramics");
             setOriginItem(item);
             setSearchQuery(q);
-            setShowFavorites(false);
+            setView("browse");
             setLightboxItem(null);
             fetchResults(activeCategory, activeSources, q);
           }}
