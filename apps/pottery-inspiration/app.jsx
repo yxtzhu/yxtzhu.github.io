@@ -469,6 +469,10 @@ function PotteryInspiration() {
     try { return JSON.parse(localStorage.getItem("pottery-challenge-surface") || "null"); }
     catch { return null; }
   });
+  const [savedChallenges, setSavedChallenges] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pottery-saved-challenges") || "[]"); }
+    catch { return []; }
+  });
 
   const abortRef = useRef(null);
   const metIdsRef = useRef([]);
@@ -746,6 +750,37 @@ function PotteryInspiration() {
     if (pool.length >= 2) generateChallenge();
   }, [showChallenge, challengeMode, favItems, items, challengeForm, challengeSurface, generateChallenge]);
 
+  const challengeKey = (form, surface) => `${form.id}__${surface.id}`;
+  const isCurrentChallengeSaved = !!(challengeForm && challengeSurface
+    && savedChallenges.some(c => c.id === challengeKey(challengeForm, challengeSurface)));
+
+  const toggleSaveChallenge = () => {
+    if (!challengeForm || !challengeSurface) return;
+    const id = challengeKey(challengeForm, challengeSurface);
+    setSavedChallenges(prev => {
+      const next = prev.some(c => c.id === id)
+        ? prev.filter(c => c.id !== id)
+        : [{ id, form: challengeForm, surface: challengeSurface, savedAt: Date.now() }, ...prev];
+      localStorage.setItem("pottery-saved-challenges", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const loadSavedChallenge = (saved) => {
+    setChallengeForm(saved.form);
+    setChallengeSurface(saved.surface);
+    localStorage.setItem("pottery-challenge-form", JSON.stringify(saved.form));
+    localStorage.setItem("pottery-challenge-surface", JSON.stringify(saved.surface));
+  };
+
+  const unsaveChallenge = (id) => {
+    setSavedChallenges(prev => {
+      const next = prev.filter(c => c.id !== id);
+      localStorage.setItem("pottery-saved-challenges", JSON.stringify(next));
+      return next;
+    });
+  };
+
   const switchChallengeMode = (mode) => {
     if (mode === challengeMode) return;
     setChallengeMode(mode);
@@ -970,8 +1005,18 @@ function PotteryInspiration() {
                       }}>{label}</button>
                     ))}
                   </div>
+                  {challengeForm && challengeSurface && (
+                    <button onClick={toggleSaveChallenge} style={{
+                      marginLeft:"auto",padding:"7px 14px",borderRadius:4,
+                      border:isCurrentChallengeSaved?"1px solid #E8A0A0":"1px solid #5A534A",
+                      background:isCurrentChallengeSaved?"rgba(232,160,160,0.15)":"transparent",
+                      color:isCurrentChallengeSaved?"#E8A0A0":"#9B9488",
+                      fontSize:11,fontWeight:600,cursor:"pointer",letterSpacing:"0.04em",
+                      fontFamily:"'DM Sans',system-ui,sans-serif",
+                    }}>{isCurrentChallengeSaved ? "♥ Saved" : "♡ Save challenge"}</button>
+                  )}
                   <button onClick={generateChallenge} disabled={!canGenerate} style={{
-                    marginLeft:"auto",padding:"7px 18px",borderRadius:4,border:"1px solid #5A534A",
+                    marginLeft:(challengeForm && challengeSurface)?0:"auto",padding:"7px 18px",borderRadius:4,border:"1px solid #5A534A",
                     background:canGenerate?"#2A2622":"transparent",
                     color:canGenerate?"#E8E0D6":"#3A3632",
                     fontSize:11,fontWeight:600,cursor:canGenerate?"pointer":"not-allowed",
@@ -1013,6 +1058,51 @@ function PotteryInspiration() {
                   </div>
                 ) : (
                   <div style={{ textAlign:"center",padding:"60px 20px",color:"#5A534A",fontSize:13 }}>Drawing two pieces…</div>
+                )}
+
+                {savedChallenges.length > 0 && (
+                  <div style={{ marginTop:24,paddingTop:24,borderTop:"1px solid #2A2622" }}>
+                    <div style={{ display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:14 }}>
+                      <div style={{ fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.2em",color:"#7A7268" }}>
+                        Saved challenges
+                      </div>
+                      <div style={{ fontSize:10,color:"#5A534A",letterSpacing:"0.05em" }}>
+                        {savedChallenges.length} saved · per device
+                      </div>
+                    </div>
+                    <div className="pills-scroll" style={{ display:"flex",gap:12,overflowX:"auto",paddingBottom:8,scrollbarWidth:"none",msOverflowStyle:"none" }}>
+                      {savedChallenges.map(saved => {
+                        const active = challengeForm && challengeSurface
+                          && challengeKey(challengeForm, challengeSurface) === saved.id;
+                        return (
+                          <div
+                            key={saved.id}
+                            onClick={() => loadSavedChallenge(saved)}
+                            style={{ position:"relative",flexShrink:0,width:220,borderRadius:6,overflow:"hidden",background:"#1E1B18",border:active?"1px solid #C9A96E":"1px solid #2A2622",cursor:"pointer",transition:"border-color 0.15s ease" }}
+                          >
+                            <button
+                              onClick={(e) => { e.stopPropagation(); unsaveChallenge(saved.id); }}
+                              aria-label="Unsave challenge"
+                              style={{ position:"absolute",top:6,right:6,zIndex:2,width:24,height:24,borderRadius:"50%",border:"none",background:"rgba(20,18,16,0.85)",color:"#E8A0A0",cursor:"pointer",fontSize:14,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)" }}
+                            >×</button>
+                            <div style={{ display:"flex",aspectRatio:"2/1" }}>
+                              <img src={saved.form.imageUrl} alt={saved.form.title} loading="lazy" style={{ width:"50%",height:"100%",objectFit:"cover",display:"block" }} />
+                              <img src={saved.surface.imageUrl} alt={saved.surface.title} loading="lazy" style={{ width:"50%",height:"100%",objectFit:"cover",display:"block",borderLeft:"1px solid #141210" }} />
+                            </div>
+                            <div style={{ padding:"10px 12px 12px" }}>
+                              <div style={{ fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.15em",color:"#C9A96E",marginBottom:5 }}>Form × Surface</div>
+                              <div style={{ fontSize:12,color:"#D4CCC2",fontFamily:"'Cormorant Garamond',Georgia,serif",fontStyle:"italic",lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                                {saved.form.title}
+                              </div>
+                              <div style={{ fontSize:12,color:"#7A7268",fontFamily:"'Cormorant Garamond',Georgia,serif",fontStyle:"italic",lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+                                × {saved.surface.title}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </>
             );
