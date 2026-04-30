@@ -471,6 +471,14 @@ body {
   color: var(--ink-faint); letter-spacing: -0.01em;
 }
 .gallery-end-card p em { font-style: italic; color: var(--ink-soft); }
+.gallery-end-link {
+  display: inline-block; margin-top: 8px;
+  font-family: 'Montserrat', sans-serif; font-size: 0.72rem;
+  letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none;
+  color: var(--ink-soft); border-bottom: 1px solid var(--ink-ghost);
+  transition: color 0.3s ease, border-color 0.3s ease;
+}
+.gallery-end-link:hover { color: var(--accent); border-color: var(--accent); }
 
 /* Pottery Lightbox */
 .g-lightbox {
@@ -640,55 +648,8 @@ body {
   </div>
 </div>
 
-<!-- 5: Paper Gallery -->
-<section class="breath gallery-section gallery-section-paper" data-section="5">
-  <div class="breath-content" style="text-align:center;">
-    <div class="project-number" id="pNum3"></div>
-    <h2 class="project-name" id="pName3"></h2>
-    <p class="project-type" id="pType3"></p>
-  </div>
-  <div class="gallery-hdr">
-    <h3>Selected <span>Works</span></h3>
-    <div class="gallery-ctrls">
-      <span class="g-piece-counter" id="aCounter">1 / 12</span>
-      <button class="gallery-btn" id="aPrev" aria-label="Previous piece">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <button class="gallery-btn" id="aNext" aria-label="Next piece">
-        <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
-      </button>
-    </div>
-  </div>
-  <div class="gallery-prog">
-    <div class="gallery-prog-bg"><div class="gallery-prog-fill" id="aProgFill"></div></div>
-  </div>
-  <div class="gallery-scroll-wrap" id="aScrollWrap">
-    <div class="gallery-track" id="aTrack"></div>
-  </div>
-</section>
-
-<!-- Art Lightbox -->
-<div class="g-lightbox" id="aLightbox">
-  <button class="g-lb-close" id="aLbClose" aria-label="Close">
-    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-  </button>
-  <button class="g-lb-nav prev" id="aLbPrev" aria-label="Previous">
-    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-  </button>
-  <button class="g-lb-nav next" id="aLbNext" aria-label="Next">
-    <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
-  </button>
-  <div class="g-lb-content">
-    <img id="aLbImg" src="" alt="">
-    <div class="g-lb-info">
-      <div class="g-title" id="aLbTitle"></div>
-      <div class="g-material" id="aLbMaterial"></div>
-    </div>
-  </div>
-</div>
-
-<!-- 6: Contact -->
-<section class="breath" data-section="6">
+<!-- 5: Contact -->
+<section class="breath" data-section="5">
   <div class="breath-content" style="text-align:center;">
     <h2 class="contact-heading" id="contactHeading"></h2>
     <div class="contact-secondary" id="contactLinks">
@@ -818,14 +779,7 @@ const sections = [
       typeProject('pNum2', '002', 'pName2', 'Kiln', 'pType2', '—', done);
     }
   },
-  // 5: Project 3 + Paper Gallery
-  {
-    init: (done) => {
-      document.querySelector('.gallery-section-paper').classList.add('gallery-visible');
-      typeProject('pNum3', '003', 'pName3', 'Paper', 'pType3', '—', done);
-    }
-  },
-  // 6: Contact
+  // 5: Contact
   {
     init: (done) => {
       const typer = new Typewriter(document.getElementById('contactHeading'), {
@@ -1002,7 +956,7 @@ const galleryPieces = {{ site.data.gallery | jsonify }};
   // End card
   const endCard = document.createElement('div');
   endCard.className = 'gallery-end-card';
-  endCard.innerHTML = '<div class="gallery-end-orn"></div><p>made with no <em>intention</em></p>';
+  endCard.innerHTML = '<div class="gallery-end-orn"></div><p>made with no <em>intention</em></p><a href="/art/" class="gallery-end-link">full portfolio →</a>';
   gTrack.appendChild(endCard);
 
   gCounter.textContent = `1\u2009/\u2009${total}`;
@@ -1088,138 +1042,6 @@ const galleryPieces = {{ site.data.gallery | jsonify }};
   });
 
   gUpdateUI();
-}());
-</script>
-
-<script>
-// ─────────────────────────────────────────────────────────────────────────────
-// PAPER GALLERY — data loaded from _data/art.yml
-// ─────────────────────────────────────────────────────────────────────────────
-const artPieces = {{ site.data.art | jsonify }};
-
-(function () {
-  const aTrack    = document.getElementById('aTrack');
-  const aWrap     = document.getElementById('aScrollWrap');
-  const aCounter  = document.getElementById('aCounter');
-  const aProgFill = document.getElementById('aProgFill');
-  const aPrev     = document.getElementById('aPrev');
-  const aNext     = document.getElementById('aNext');
-  const aLightbox = document.getElementById('aLightbox');
-  const aLbImg    = document.getElementById('aLbImg');
-  const aLbTitle  = document.getElementById('aLbTitle');
-  const aLbMat    = document.getElementById('aLbMaterial');
-
-  const total = artPieces.length;
-  let current = 0;
-  let lbIndex = -1;
-
-  artPieces.forEach((p, i) => {
-    const card = document.createElement('div');
-    card.className = 'gallery-card';
-    card.innerHTML = `
-      <img src="${p.img}" alt="${p.title}" class="g-cover" loading="lazy">
-      <div class="gallery-card-info">
-        <div class="g-title">${p.title}</div>
-        <div class="g-material">${p.material}</div>
-      </div>`;
-    const img = card.querySelector('img');
-    img.addEventListener('load', function () {
-      this.className = this.naturalWidth > this.naturalHeight * 1.15 ? 'g-contain' : 'g-cover';
-    });
-    card.addEventListener('click', () => { if (!aWasDragged) openLb(i); });
-    aTrack.appendChild(card);
-  });
-
-  const endCard = document.createElement('div');
-  endCard.className = 'gallery-end-card';
-  endCard.innerHTML = '<div class="gallery-end-orn"></div><p>drawn with <em>intention</em></p>';
-  aTrack.appendChild(endCard);
-
-  aCounter.textContent = `1 / ${total}`;
-
-  function getCardWidth() {
-    const card = aWrap.querySelector('.gallery-card');
-    return card ? card.offsetWidth : window.innerWidth;
-  }
-
-  function aUpdateUI() {
-    const cardW = getCardWidth();
-    const maxScroll = aWrap.scrollWidth - aWrap.clientWidth;
-    const sl = aWrap.scrollLeft;
-    aProgFill.style.width = (maxScroll > 0 ? Math.min(sl / maxScroll, 1) * 100 : 0) + '%';
-    current = Math.max(0, Math.min(Math.round(sl / cardW), total - 1));
-    aCounter.textContent = `${current + 1} / ${total}`;
-    aPrev.disabled = sl <= 2;
-    aNext.disabled = sl >= maxScroll - 2;
-  }
-  aWrap.addEventListener('scroll', aUpdateUI, { passive: true });
-  window.addEventListener('resize', aUpdateUI);
-
-  function aScrollTo(idx) {
-    aWrap.scrollTo({ left: idx * getCardWidth(), behavior: 'smooth' });
-  }
-  aPrev.addEventListener('click', () => aScrollTo(Math.max(0, current - 1)));
-  aNext.addEventListener('click', () => aScrollTo(Math.min(total, current + 1)));
-
-  let aDragging = false, aWasDragged = false, aStartX = 0, aScrollStart = 0;
-  const A_DRAG_THRESH = 8;
-  aTrack.addEventListener('mousedown', e => {
-    aDragging = true; aWasDragged = false;
-    aStartX = e.pageX; aScrollStart = aWrap.scrollLeft;
-    aTrack.classList.add('is-dragging');
-    aWrap.style.scrollSnapType = 'none';
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove', e => {
-    if (!aDragging) return;
-    if (Math.abs(e.pageX - aStartX) > A_DRAG_THRESH) aWasDragged = true;
-    aWrap.scrollLeft = aScrollStart - (e.pageX - aStartX);
-  });
-  document.addEventListener('mouseup', () => {
-    if (!aDragging) return;
-    aDragging = false;
-    aTrack.classList.remove('is-dragging');
-    aWrap.style.scrollSnapType = 'x mandatory';
-    setTimeout(() => { aWasDragged = false; }, 20);
-  });
-
-  let aTouchX = 0;
-  aTrack.addEventListener('touchstart', e => { aTouchX = e.touches[0].pageX; aWasDragged = false; }, { passive: true });
-  aTrack.addEventListener('touchmove', e => { if (Math.abs(e.touches[0].pageX - aTouchX) > A_DRAG_THRESH) aWasDragged = true; }, { passive: true });
-  aTrack.addEventListener('touchend', () => { setTimeout(() => { aWasDragged = false; }, 20); });
-
-  function openLb(i) {
-    lbIndex = i;
-    const p = artPieces[i];
-    aLbImg.src = p.img; aLbImg.alt = p.title;
-    aLbTitle.textContent = p.title;
-    aLbMat.textContent = p.material;
-    aLightbox.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  }
-  function closeLb() {
-    aLightbox.classList.remove('active');
-    document.body.style.overflow = '';
-    lbIndex = -1;
-  }
-  function navigateLb(dir) {
-    const n = lbIndex + dir;
-    if (n >= 0 && n < total) openLb(n);
-  }
-
-  document.getElementById('aLbClose').addEventListener('click', closeLb);
-  document.getElementById('aLbPrev').addEventListener('click', () => navigateLb(-1));
-  document.getElementById('aLbNext').addEventListener('click', () => navigateLb(1));
-  aLightbox.addEventListener('click', e => { if (e.target === aLightbox) closeLb(); });
-
-  document.addEventListener('keydown', e => {
-    if (!aLightbox.classList.contains('active')) return;
-    if (e.key === 'Escape') closeLb();
-    if (e.key === 'ArrowLeft') navigateLb(-1);
-    if (e.key === 'ArrowRight') navigateLb(1);
-  });
-
-  aUpdateUI();
 }());
 </script>
 

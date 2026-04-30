@@ -1,0 +1,273 @@
+---
+layout: null
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paper — Tingting Zhu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Montserrat:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --paper: #f5f3ef;
+      --ink: #1a1917;
+      --ink-soft: #6b6860;
+      --ink-faint: #9e9b94;
+      --ink-ghost: rgba(26,25,23,0.12);
+      --accent: #b85c38;
+    }
+
+    html, body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+    }
+
+    /* Nav */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px 48px;
+    }
+    .nav-back {
+      font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+      text-decoration: none; color: var(--ink-soft);
+      border-bottom: 1px solid var(--ink-ghost);
+      transition: color 0.3s, border-color 0.3s;
+    }
+    .nav-back:hover { color: var(--accent); border-color: var(--accent); }
+    .nav-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300; font-size: 1rem; letter-spacing: 0.08em;
+      color: var(--ink-faint);
+    }
+
+    /* Header */
+    .page-header {
+      padding: 120px 48px 48px;
+      max-width: 1200px; margin: 0 auto;
+      border-bottom: 1px solid var(--ink-ghost);
+    }
+    .page-header .label {
+      font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--ink-faint); margin-bottom: 12px;
+    }
+    .page-header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300; font-size: clamp(2.5rem, 6vw, 4.5rem);
+      letter-spacing: -0.02em; line-height: 1;
+    }
+    .page-header p {
+      margin-top: 16px; font-size: 0.82rem; letter-spacing: 0.04em;
+      color: var(--ink-soft); max-width: 480px; line-height: 1.7;
+    }
+
+    /* Grid */
+    .grid {
+      max-width: 1200px; margin: 0 auto;
+      padding: 48px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); gap: 16px; padding: 24px; } }
+    @media (max-width: 480px) { .grid { grid-template-columns: 1fr; padding: 16px; } }
+
+    .grid-item {
+      cursor: pointer;
+      overflow: hidden;
+      background: #e8e5df;
+    }
+    .grid-item img {
+      width: 100%; aspect-ratio: 3/4; object-fit: cover;
+      display: block;
+      transition: transform 0.6s ease;
+    }
+    .grid-item:hover img { transform: scale(1.03); }
+    .grid-item-info {
+      padding: 14px 16px 16px;
+    }
+    .grid-item-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400; font-size: 1rem; letter-spacing: 0.01em;
+    }
+    .grid-item-material {
+      font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--ink-faint); margin-top: 4px;
+    }
+
+    /* Lightbox */
+    .lightbox {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(26,25,23,0.92);
+      align-items: center; justify-content: center;
+    }
+    .lightbox.active { display: flex; }
+    .lb-img {
+      max-height: 90vh; max-width: 90vw;
+      object-fit: contain;
+    }
+    .lb-close {
+      position: fixed; top: 20px; right: 20px;
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.2); background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.6); transition: all 0.3s;
+    }
+    .lb-close:hover { border-color: rgba(255,255,255,0.6); color: #fff; }
+    .lb-close svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .lb-nav {
+      position: fixed; top: 50%; transform: translateY(-50%);
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.15); background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.5); transition: all 0.3s;
+    }
+    .lb-nav:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+    .lb-nav.prev { left: 20px; }
+    .lb-nav.next { right: 20px; }
+    .lb-nav svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .lb-info {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      text-align: center; color: rgba(255,255,255,0.5);
+    }
+    .lb-info .lb-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem; font-weight: 300; color: rgba(255,255,255,0.75);
+    }
+    .lb-info .lb-mat {
+      font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Also show ceramics */
+    .section-divider {
+      max-width: 1200px; margin: 0 auto;
+      padding: 0 48px 32px;
+      display: flex; align-items: center; gap: 24px;
+    }
+    .section-divider h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300; font-size: 1.4rem; letter-spacing: 0.04em;
+      white-space: nowrap; color: var(--ink-soft);
+    }
+    .section-divider-line { flex: 1; height: 1px; background: var(--ink-ghost); }
+    @media (max-width: 900px) { .section-divider, .page-header { padding-left: 24px; padding-right: 24px; } }
+    @media (max-width: 480px) { .section-divider, .page-header { padding-left: 16px; padding-right: 16px; } }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-back">← back</a>
+  <span class="nav-title">Tingting Zhu</span>
+</nav>
+
+<header class="page-header">
+  <div class="label">003 — Portfolio</div>
+  <h1>Paper</h1>
+  <p>Ink illustrations. Mostly seafood.</p>
+</header>
+
+<div class="grid" id="artGrid"></div>
+
+<div class="section-divider">
+  <h2>Ceramics</h2>
+  <div class="section-divider-line"></div>
+</div>
+
+<div class="grid" id="potteryGrid"></div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" id="lbClose">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <button class="lb-nav prev" id="lbPrev">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <button class="lb-nav next" id="lbNext">
+    <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+  </button>
+  <img class="lb-img" id="lbImg" src="" alt="">
+  <div class="lb-info">
+    <div class="lb-title" id="lbTitle"></div>
+    <div class="lb-mat" id="lbMat"></div>
+  </div>
+</div>
+
+<script>
+const artPieces    = {{ site.data.art | jsonify }};
+const potteryPieces = {{ site.data.gallery | jsonify }};
+
+let allPieces = [];
+let lbIdx = -1;
+
+const lightbox = document.getElementById('lightbox');
+const lbImg    = document.getElementById('lbImg');
+const lbTitle  = document.getElementById('lbTitle');
+const lbMat    = document.getElementById('lbMat');
+
+function buildGrid(pieces, gridEl, offset) {
+  pieces.forEach((p, i) => {
+    const item = document.createElement('div');
+    item.className = 'grid-item';
+    item.innerHTML = `
+      <img src="/${p.img}" alt="${p.title}" loading="lazy">
+      <div class="grid-item-info">
+        <div class="grid-item-title">${p.title}</div>
+        <div class="grid-item-material">${p.material}</div>
+      </div>`;
+    item.querySelector('img').addEventListener('load', function () {
+      if (this.naturalWidth > this.naturalHeight * 1.15) {
+        this.style.aspectRatio = '4/3';
+      }
+    });
+    item.addEventListener('click', () => openLb(offset + i));
+    gridEl.appendChild(item);
+  });
+}
+
+buildGrid(artPieces, document.getElementById('artGrid'), 0);
+allPieces = [...artPieces, ...potteryPieces];
+buildGrid(potteryPieces, document.getElementById('potteryGrid'), artPieces.length);
+
+function openLb(i) {
+  lbIdx = i;
+  const p = allPieces[i];
+  lbImg.src = '/' + p.img; lbImg.alt = p.title;
+  lbTitle.textContent = p.title;
+  lbMat.textContent = p.material;
+  lightbox.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeLb() {
+  lightbox.classList.remove('active');
+  document.body.style.overflow = '';
+  lbIdx = -1;
+}
+function navigateLb(dir) {
+  const n = lbIdx + dir;
+  if (n >= 0 && n < allPieces.length) openLb(n);
+}
+
+document.getElementById('lbClose').addEventListener('click', closeLb);
+document.getElementById('lbPrev').addEventListener('click', () => navigateLb(-1));
+document.getElementById('lbNext').addEventListener('click', () => navigateLb(1));
+lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLb(); });
+document.addEventListener('keydown', e => {
+  if (!lightbox.classList.contains('active')) return;
+  if (e.key === 'Escape') closeLb();
+  if (e.key === 'ArrowLeft') navigateLb(-1);
+  if (e.key === 'ArrowRight') navigateLb(1);
+});
+</script>
+
+</body>
+</html>
