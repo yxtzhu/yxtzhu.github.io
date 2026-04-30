@@ -147,20 +147,8 @@ layout: null
       margin-top: 4px;
     }
 
-    /* Also show ceramics */
-    .section-divider {
-      max-width: 1200px; margin: 0 auto;
-      padding: 0 48px 32px;
-      display: flex; align-items: center; gap: 24px;
-    }
-    .section-divider h2 {
-      font-family: 'Cormorant Garamond', serif;
-      font-weight: 300; font-size: 1.4rem; letter-spacing: 0.04em;
-      white-space: nowrap; color: var(--ink-soft);
-    }
-    .section-divider-line { flex: 1; height: 1px; background: var(--ink-ghost); }
-    @media (max-width: 900px) { .section-divider, .page-header { padding-left: 24px; padding-right: 24px; } }
-    @media (max-width: 480px) { .section-divider, .page-header { padding-left: 16px; padding-right: 16px; } }
+    @media (max-width: 900px) { .page-header { padding-left: 24px; padding-right: 24px; } }
+    @media (max-width: 480px) { .page-header { padding-left: 16px; padding-right: 16px; } }
   </style>
 </head>
 <body>
@@ -173,17 +161,10 @@ layout: null
 <header class="page-header">
   <div class="label">003 — Portfolio</div>
   <h1>Paper</h1>
-  <p>Ink illustrations. Mostly seafood.</p>
+  <p>Ceramics & ink illustrations.</p>
 </header>
 
-<div class="grid" id="artGrid"></div>
-
-<div class="section-divider">
-  <h2>Ceramics</h2>
-  <div class="section-divider-line"></div>
-</div>
-
-<div class="grid" id="potteryGrid"></div>
+<div class="grid" id="mixedGrid"></div>
 
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox">
@@ -204,10 +185,12 @@ layout: null
 </div>
 
 <script>
-const artPieces    = {{ site.data.art | jsonify }};
+const artPieces     = {{ site.data.art | jsonify }};
 const potteryPieces = {{ site.data.gallery | jsonify }};
 
-let allPieces = [];
+const allPieces = [...artPieces, ...potteryPieces]
+  .sort(() => Math.random() - 0.5);
+
 let lbIdx = -1;
 
 const lightbox = document.getElementById('lightbox');
@@ -215,24 +198,19 @@ const lbImg    = document.getElementById('lbImg');
 const lbTitle  = document.getElementById('lbTitle');
 const lbMat    = document.getElementById('lbMat');
 
-function buildGrid(pieces, gridEl, offset) {
-  pieces.forEach((p, i) => {
-    const item = document.createElement('div');
-    item.className = 'grid-item';
-    item.innerHTML = `
-      <img src="/${p.img}" alt="${p.title}" loading="lazy">
-      <div class="grid-item-info">
-        <div class="grid-item-title">${p.title}</div>
-        <div class="grid-item-material">${p.material}</div>
-      </div>`;
-    item.addEventListener('click', () => openLb(offset + i));
-    gridEl.appendChild(item);
-  });
-}
-
-buildGrid(artPieces, document.getElementById('artGrid'), 0);
-allPieces = [...artPieces, ...potteryPieces];
-buildGrid(potteryPieces, document.getElementById('potteryGrid'), artPieces.length);
+const grid = document.getElementById('mixedGrid');
+allPieces.forEach((p, i) => {
+  const item = document.createElement('div');
+  item.className = 'grid-item';
+  item.innerHTML = `
+    <img src="/${p.img}" alt="${p.title}" loading="lazy">
+    <div class="grid-item-info">
+      <div class="grid-item-title">${p.title}</div>
+      <div class="grid-item-material">${p.material}</div>
+    </div>`;
+  item.addEventListener('click', () => openLb(i));
+  grid.appendChild(item);
+});
 
 function openLb(i) {
   lbIdx = i;
