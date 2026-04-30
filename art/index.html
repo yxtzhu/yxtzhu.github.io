@@ -72,20 +72,21 @@ layout: null
     .grid {
       max-width: 1200px; margin: 0 auto;
       padding: 48px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
+      columns: 3;
+      column-gap: 24px;
     }
-    @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); gap: 16px; padding: 24px; } }
-    @media (max-width: 480px) { .grid { grid-template-columns: 1fr; padding: 16px; } }
+    @media (max-width: 900px) { .grid { columns: 2; column-gap: 16px; padding: 24px; } }
+    @media (max-width: 480px) { .grid { columns: 1; padding: 16px; } }
 
     .grid-item {
+      break-inside: avoid;
+      margin-bottom: 24px;
       cursor: pointer;
       overflow: hidden;
       background: #e8e5df;
     }
     .grid-item img {
-      width: 100%; aspect-ratio: 3/4; object-fit: cover;
+      width: 100%; height: auto;
       display: block;
       transition: transform 0.6s ease;
     }
@@ -224,11 +225,6 @@ function buildGrid(pieces, gridEl, offset) {
         <div class="grid-item-title">${p.title}</div>
         <div class="grid-item-material">${p.material}</div>
       </div>`;
-    item.querySelector('img').addEventListener('load', function () {
-      if (this.naturalWidth > this.naturalHeight * 1.15) {
-        this.style.aspectRatio = '4/3';
-      }
-    });
     item.addEventListener('click', () => openLb(offset + i));
     gridEl.appendChild(item);
   });
