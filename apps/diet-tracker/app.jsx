@@ -523,7 +523,7 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
     try {
       const base64 = image.split(",")[1];
       const mimeType = image.split(";")[0].split(":")[1];
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
