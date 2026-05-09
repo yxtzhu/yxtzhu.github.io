@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E8B07A"/>
+      <stop offset="100%" stop-color="#A8703A"/>
+    </linearGradient>
+    <radialGradient id="plate" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F0E8DF"/>
+      <stop offset="100%" stop-color="#C8B8A8"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#bg)"/>
+
+  <!-- Plate -->
+  <circle cx="256" cy="280" r="140" fill="url(#plate)" opacity="0.95"/>
+  <circle cx="256" cy="280" r="110" fill="none" stroke="#B8A898" stroke-width="3" opacity="0.6"/>
+
+  <!-- Apple body -->
+  <path d="M256 218
+           C 220 218, 200 240, 200 274
+           C 200 316, 230 354, 256 354
+           C 282 354, 312 316, 312 274
+           C 312 240, 292 218, 256 218 Z"
+        fill="#C84040" opacity="0.92"/>
+  <!-- Apple highlight -->
+  <ellipse cx="232" cy="252" rx="14" ry="22" fill="#F0E8DF" opacity="0.35"/>
+  <!-- Apple stem -->
+  <path d="M256 218 Q256 200 264 192" stroke="#5A3A22" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <!-- Leaf -->
+  <path d="M264 200 Q282 190 290 204 Q278 212 264 208 Z" fill="#7B8F6B"/>
+
+  <!-- Fork (top-left of plate) -->
+  <g transform="translate(118 142) rotate(-22)">
+    <rect x="0" y="44" width="6" height="120" rx="3" fill="#1E1B18" opacity="0.85"/>
+    <rect x="-12" y="0" width="6" height="50" rx="2" fill="#1E1B18" opacity="0.85"/>
+    <rect x="0" y="0" width="6" height="50" rx="2" fill="#1E1B18" opacity="0.85"/>
+    <rect x="12" y="0" width="6" height="50" rx="2" fill="#1E1B18" opacity="0.85"/>
+    <rect x="-14" y="38" width="34" height="10" rx="3" fill="#1E1B18" opacity="0.85"/>
+  </g>
+</svg>

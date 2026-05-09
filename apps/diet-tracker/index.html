@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Diet Tracker" />
+  <meta name="theme-color" content="#181411" />
+  <title>Diet Tracker</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #181411; width: 100%; min-height: 100%; -webkit-font-smoothing: antialiased; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script src="app.js"></script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+        .then(reg => { reg.update().catch(() => {}); })
+        .catch(() => {});
+      if (navigator.serviceWorker.controller) {
+        let reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (reloading) return;
+          reloading = true;
+          window.location.reload();
+        });
+      }
+    });
+  }
+</script>
+</body>
+</html>
