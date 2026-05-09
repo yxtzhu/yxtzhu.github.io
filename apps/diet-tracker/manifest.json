@@ -1,0 +1,25 @@
+{
+  "name": "Diet Tracker",
+  "short_name": "Diet",
+  "description": "Photo-based calorie and macro tracker with a Tamagotchi health pet.",
+  "start_url": "/apps/diet-tracker/",
+  "scope": "/apps/diet-tracker/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#181411",
+  "theme_color": "#181411",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
