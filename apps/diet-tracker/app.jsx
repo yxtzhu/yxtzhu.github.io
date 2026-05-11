@@ -595,8 +595,49 @@ const scaleMacros = (base, p) => {
   return MACRO_KEYS.reduce((a, k) => (a[k] = Math.round((base[k] || 0) * p), a), {});
 };
 
-// Analyze modal
-const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
+// Text entry modal — quick textarea for describing a meal in words.
+// On submit, hands the string to AnalyzeModal which runs the same Gemini
+// pipeline as the photo path (just without the image part).
+const TextEntryModal = ({ onSubmit, onClose }) => {
+  const [text, setText] = useState("");
+  const inputRef = useRef();
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  const submit = () => { const t = text.trim(); if (t) onSubmit(t); };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: "#1e1a17", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px 16px 0 0", padding: 24, width: "100%", maxWidth: 480 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: "#f0e8df", margin: 0 }}>Describe your meal</h3>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#9a8f84", fontSize: 22, cursor: "pointer" }}>×</button>
+        </div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#6b6059", marginBottom: 12, lineHeight: 1.5 }}>
+          e.g. <span style={{ color: "#9a8f84" }}>"12oz oat milk latte"</span> · <span style={{ color: "#9a8f84" }}>"two slices of pepperoni pizza"</span>
+        </div>
+        <textarea
+          ref={inputRef}
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }}
+          placeholder="What did you eat?"
+          rows={3}
+          style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 14px", color: "#f0e8df", fontFamily: "'DM Sans', sans-serif", fontSize: 14, boxSizing: "border-box", resize: "vertical", outline: "none", lineHeight: 1.4 }}
+        />
+        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          <button onClick={submit} disabled={!text.trim()} style={{ flex: 1, background: text.trim() ? "#c8956c" : "rgba(200,149,108,0.3)", border: "none", borderRadius: 10, padding: "13px", color: "#1e1a17", fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: text.trim() ? "pointer" : "not-allowed", fontWeight: 700 }}>Analyze</button>
+          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "13px", color: "#9a8f84", fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer" }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const IMAGE_PROMPT = 'Estimate nutrition for ALL food visible in this image combined — every item shown, summed together. This is NOT a per-serving estimate; do not divide by number of people.\n\nReason step-by-step:\n1. SCALE — identify a size anchor visible in the image (utensil, hand, chopsticks, plate edge, standard glass) and state it in scale_reference. Use it to gauge portions; do not assume a plate is standard-sized without evidence.\n2. COMPONENTS — list every distinct item. Include added cooking fat as its own component if the food looks fried, sautéed, glazed, or visibly oily — added oil/butter is the single biggest source of restaurant-meal calorie variance. For each component, estimate grams from the scale anchor, then compute kcal and macros from standard nutritional data.\n3. TOTALS — sum across components. Top-level calories/protein_g/carbs_g/fat_g/fiber_g must equal the component sums.\n4. UNCERTAINTY — name the single assumption most likely to be wrong (e.g., "sauce volume — could swing ±150 kcal", "amount of cooking oil") in biggest_uncertainty.\n\nSet serving_assumption to "entire_image" if you summed everything shown, "single_serving" if you returned per-person values, or "other" otherwise. The expected value is "entire_image" — if you find yourself doing otherwise, recompute before answering.\n\nReturn ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","scale_reference":"e.g. fork (~20cm)","components":[{"name":"item","grams":0,"kcal":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}],"total_grams":0,"serving_assumption":"entire_image|single_serving|other","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"biggest_uncertainty":"what to verify","notes":"caveats"}';
+
+const buildTextPrompt = (text) => `Estimate nutrition for the food described below.\n\nUser description: "${text.replace(/"/g, '\\"')}"\n\nReason step-by-step:\n1. INTERPRET — figure out what was eaten and how much. If the description specifies a size or count (e.g. "12oz latte", "two slices"), use that exactly. If it's ambiguous (e.g. just "a latte" with no size), assume the most common typical serving for that item.\n2. COMPONENTS — list every distinct sub-item. For a drink, include milk/syrup separately if relevant. For a sandwich, list bread, fillings, spreads. For each component, estimate grams, then compute kcal and macros from standard nutritional data.\n3. TOTALS — sum across components. Top-level calories/protein_g/carbs_g/fat_g/fiber_g must equal the component sums.\n4. UNCERTAINTY — name the single assumption most likely to be wrong (e.g. "assumed whole milk — could swing ±50 kcal if oat/skim", "portion size not specified") in biggest_uncertainty.\n\nSet serving_assumption to "as_described" if you used the exact amount the user stated, or "typical_serving" if you assumed a common portion because the description was vague. Set scale_reference to a short note on what you assumed (e.g. "typical 12oz latte", "as stated: 2 slices").\n\nReturn ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","scale_reference":"what you assumed","components":[{"name":"item","grams":0,"kcal":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}],"total_grams":0,"serving_assumption":"as_described|typical_serving|other","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"biggest_uncertainty":"what to verify","notes":"caveats"}`;
+
+// Analyze modal — handles both image and text-described meals. Pass either
+// `image` (a data URL) or `text` (a user-typed description), not both.
+const AnalyzeModal = ({ image, text, apiKey, onLog, onClose }) => {
   const [status, setStatus] = useState("analyzing");
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -607,16 +648,17 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
     setStatus("analyzing"); setError("");
     if (!apiKey) { setError("No API key. Open ⚙ Settings to add your Gemini key."); setStatus("error"); return; }
     try {
-      const base64 = image.split(",")[1];
-      const mimeType = image.split(";")[0].split(":")[1];
+      const parts = image
+        ? [
+            { text: IMAGE_PROMPT },
+            { inline_data: { mime_type: image.split(";")[0].split(":")[1], data: image.split(",")[1] } },
+          ]
+        : [{ text: buildTextPrompt(text) }];
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [
-            { text: 'Estimate nutrition for ALL food visible in this image combined — every item shown, summed together. This is NOT a per-serving estimate; do not divide by number of people.\n\nReason step-by-step:\n1. SCALE — identify a size anchor visible in the image (utensil, hand, chopsticks, plate edge, standard glass) and state it in scale_reference. Use it to gauge portions; do not assume a plate is standard-sized without evidence.\n2. COMPONENTS — list every distinct item. Include added cooking fat as its own component if the food looks fried, sautéed, glazed, or visibly oily — added oil/butter is the single biggest source of restaurant-meal calorie variance. For each component, estimate grams from the scale anchor, then compute kcal and macros from standard nutritional data.\n3. TOTALS — sum across components. Top-level calories/protein_g/carbs_g/fat_g/fiber_g must equal the component sums.\n4. UNCERTAINTY — name the single assumption most likely to be wrong (e.g., "sauce volume — could swing ±150 kcal", "amount of cooking oil") in biggest_uncertainty.\n\nSet serving_assumption to "entire_image" if you summed everything shown, "single_serving" if you returned per-person values, or "other" otherwise. The expected value is "entire_image" — if you find yourself doing otherwise, recompute before answering.\n\nReturn ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","scale_reference":"e.g. fork (~20cm)","components":[{"name":"item","grams":0,"kcal":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}],"total_grams":0,"serving_assumption":"entire_image|single_serving|other","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"biggest_uncertainty":"what to verify","notes":"caveats"}' },
-            { inline_data: { mime_type: mimeType, data: base64 } }
-          ]}],
+          contents: [{ parts }],
           generationConfig: { temperature: 0.1 }
         })
       });
@@ -651,7 +693,11 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: "#1e1a17", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px 16px 0 0", padding: 24, width: "100%", maxWidth: 480, maxHeight: "92vh", overflowY: "auto" }}>
         <div style={{ display: "flex", gap: 14, marginBottom: 20, alignItems: "flex-start" }}>
-          <img src={image} alt="" style={{ width: 76, height: 76, objectFit: "cover", borderRadius: 10, flexShrink: 0 }} />
+          {image
+            ? <img src={image} alt="" style={{ width: 76, height: 76, objectFit: "cover", borderRadius: 10, flexShrink: 0 }} />
+            : <div style={{ width: 76, height: 76, borderRadius: 10, flexShrink: 0, background: "rgba(200,149,108,0.10)", border: "1px solid rgba(200,149,108,0.30)", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, overflow: "hidden" }}>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#c8956c", textAlign: "center", lineHeight: 1.3, wordBreak: "break-word", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>"{text}"</span>
+              </div>}
           <div style={{ flex: 1 }}>
             {status === "analyzing" && (<>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, color: "#f0e8df", marginBottom: 6 }}>Analyzing…</div>
@@ -675,9 +721,14 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
           </div>
         </div>
         {status === "done" && edited && (<>
-          {result.serving_assumption && result.serving_assumption !== "entire_image" && (
+          {image && result.serving_assumption && result.serving_assumption !== "entire_image" && (
             <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#e07a5f", marginBottom: 14, padding: "10px 12px", background: "rgba(224,122,95,0.08)", border: "1px solid rgba(224,122,95,0.25)", borderRadius: 8, lineHeight: 1.4 }}>
               ⚠ Estimate is for {result.serving_assumption === "single_serving" ? "a single serving" : "part of the image"}, not everything shown. Adjust below if you ate more.
+            </div>
+          )}
+          {!image && result.serving_assumption === "typical_serving" && (
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#c8956c", marginBottom: 14, padding: "10px 12px", background: "rgba(200,149,108,0.08)", border: "1px solid rgba(200,149,108,0.25)", borderRadius: 8, lineHeight: 1.4 }}>
+              Assumed a typical serving size since none was specified. Adjust below if needed.
             </div>
           )}
           {result.components && result.components.length > 0 && (
@@ -765,6 +816,9 @@ function App() {
   const [tab, setTab] = useState("today");
   const [showSettings, setShowSettings] = useState(false);
   const [pendingImage, setPendingImage] = useState(null);
+  const [pendingText, setPendingText] = useState(null);
+  const [showTextEntry, setShowTextEntry] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [storageError, setStorageError] = useState(false);
   const entriesLoadedRef = useRef(false);
@@ -854,7 +908,7 @@ function App() {
   // uncertainty) that's useful inside the modal but never displayed once the
   // entry is logged, so dropping it keeps each saved entry small.
   const handleLog = async (data) => {
-    const image = await resizeImage(pendingImage);
+    const image = pendingImage ? await resizeImage(pendingImage) : null;
     const entry = {
       id: Date.now(),
       image,
@@ -870,6 +924,7 @@ function App() {
     };
     saveEntries([entry, ...entries]);
     setPendingImage(null);
+    setPendingText(null);
   };
 
   const handleDelete = (id) => saveEntries(entries.filter(e => e.id !== id));
@@ -945,22 +1000,49 @@ function App() {
         {tab === "calendar" && <CalendarView allEntries={allEntries} targets={targets} />}
       </div>
 
-      {tab === "today" && (
-        <div style={{ position: "fixed", bottom: `calc(var(--safe-bottom) + 24px)`, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
-          <button onClick={() => fileRef.current?.click()} style={{
+      {tab === "today" && (<>
+        {fabOpen && <div onClick={() => setFabOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 99, background: "rgba(0,0,0,0.35)" }} />}
+        <div style={{ position: "fixed", bottom: `calc(var(--safe-bottom) + 24px)`, left: "50%", transform: "translateX(-50%)", zIndex: 100, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          {fabOpen && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "stretch" }}>
+              <button onClick={() => { setFabOpen(false); setShowTextEntry(true); }} style={{
+                background: "#1e1a17", border: "1px solid rgba(200,149,108,0.4)", borderRadius: 24,
+                padding: "10px 18px", cursor: "pointer", color: "#c8956c",
+                fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600,
+                display: "flex", alignItems: "center", gap: 8,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+              }}>
+                <span style={{ fontSize: 16 }}>✎</span> Describe
+              </button>
+              <button onClick={() => { setFabOpen(false); fileRef.current?.click(); }} style={{
+                background: "#1e1a17", border: "1px solid rgba(200,149,108,0.4)", borderRadius: 24,
+                padding: "10px 18px", cursor: "pointer", color: "#c8956c",
+                fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600,
+                display: "flex", alignItems: "center", gap: 8,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+              }}>
+                <span style={{ fontSize: 16 }}>📷</span> Photo
+              </button>
+            </div>
+          )}
+          <button onClick={() => setFabOpen(o => !o)} style={{
             width: 58, height: 58, borderRadius: "50%",
             background: "linear-gradient(135deg, #c8956c, #a8703a)",
             border: "none", cursor: "pointer",
             boxShadow: "0 4px 24px rgba(200,149,108,0.5)",
             color: "#1e1a17", fontSize: 30, fontWeight: 300, lineHeight: 1,
             display: "flex", alignItems: "center", justifyContent: "center",
+            transform: fabOpen ? "rotate(45deg)" : "rotate(0deg)",
+            transition: "transform 0.2s ease",
           }}>+</button>
           <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
             onChange={e => { handleFile(e.target.files?.[0]); e.target.value = ""; }} />
         </div>
-      )}
+      </>)}
 
       {pendingImage  && <AnalyzeModal image={pendingImage} apiKey={apiKey} onLog={handleLog} onClose={() => setPendingImage(null)} />}
+      {pendingText   && <AnalyzeModal text={pendingText} apiKey={apiKey} onLog={handleLog} onClose={() => setPendingText(null)} />}
+      {showTextEntry && <TextEntryModal onSubmit={t => { setShowTextEntry(false); setPendingText(t); }} onClose={() => setShowTextEntry(false)} />}
       {editingEntry  && <EditModal entry={editingEntry} onSave={handleSaveEdit} onClose={() => setEditingEntry(null)} />}
       {showSettings  && <SettingsPanel apiKey={apiKey} setApiKey={setApiKey} targets={targets} setTargets={setTargets} onClose={() => setShowSettings(false)} />}
     </div>
