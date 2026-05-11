@@ -345,8 +345,15 @@ const LogStrip = ({ entries }) => {
   );
 };
 
+const portionLabel = (p) => {
+  if (!p || Math.abs(p - 1) < 0.01) return null;
+  const found = PORTION_OPTIONS.find(o => Math.abs(o.value - p) < 0.01);
+  return found ? found.label : null;
+};
+
 // Entry card
 const EntryCard = ({ entry, onDelete, onEdit }) => {
+  const pLabel = portionLabel(entry.portion);
   const [expanded, setExpanded] = useState(false);
   return (
     <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "12px", display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer" }} onClick={() => setExpanded(e => !e)}>
@@ -360,7 +367,12 @@ const EntryCard = ({ entry, onDelete, onEdit }) => {
           </span>
           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059" }}>{entry.time}</span>
         </div>
-        {entry.dish && <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#9a8f84", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{entry.dish}</div>}
+        {(entry.dish || pLabel) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, minWidth: 0 }}>
+            {entry.dish && <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#9a8f84", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{entry.dish}</div>}
+            {pLabel && <span style={{ flexShrink: 0, fontFamily: "'DM Sans', sans-serif", fontSize: 9, letterSpacing: "0.05em", color: "#c8956c", background: "rgba(200,149,108,0.14)", padding: "2px 6px", borderRadius: 4 }}>{pLabel} portion</span>}
+          </div>
+        )}
         {expanded && (
           <div style={{ marginTop: 10 }}>
             <div style={{ display: "flex", gap: 14, marginBottom: 8 }}>
@@ -510,12 +522,24 @@ const SettingsPanel = ({ apiKey, setApiKey, targets, setTargets, onClose }) => {
   );
 };
 
+const PORTION_OPTIONS = [
+  { label: "¼", value: 0.25 },
+  { label: "⅓", value: 1/3 },
+  { label: "½", value: 0.5 },
+  { label: "⅔", value: 2/3 },
+  { label: "¾", value: 0.75 },
+  { label: "1×", value: 1 },
+];
+const MACRO_KEYS = ["calories", "protein", "carbs", "fat", "fiber"];
+const scaleMacros = (base, p) => MACRO_KEYS.reduce((a, k) => (a[k] = Math.round((base[k] || 0) * p), a), {});
+
 // Analyze modal
 const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
   const [status, setStatus] = useState("analyzing");
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [edited, setEdited] = useState(null);
+  const [portion, setPortion] = useState(1);
 
   const analyze = async () => {
     setStatus("analyzing"); setError("");
@@ -539,7 +563,7 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
       let text = (data.candidates?.[0]?.content?.parts?.[0]?.text || "").replace(/```json|```/g, "").trim();
       const p = JSON.parse(text);
       const r = { dish: p.dish || "Unknown", description: p.description || "", confidence: p.confidence || "medium", calories: Math.round(p.calories || 0), protein: Math.round(p.protein_g || 0), carbs: Math.round(p.carbs_g || 0), fat: Math.round(p.fat_g || 0), fiber: Math.round(p.fiber_g || 0), notes: p.notes || "" };
-      setResult(r); setEdited(r); setStatus("done");
+      setResult(r); setEdited(r); setPortion(1); setStatus("done");
     } catch (e) { setError(e.message || "Analysis failed."); setStatus("error"); }
   };
 
@@ -573,6 +597,26 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
         </div>
         {status === "done" && edited && (<>
           <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9a8f84", marginBottom: 10 }}>Portion eaten</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {PORTION_OPTIONS.map(({ label, value }) => {
+                const active = Math.abs(portion - value) < 0.01;
+                return (
+                  <button key={label} onClick={() => { setPortion(value); setEdited({ ...edited, ...scaleMacros(result, value) }); }}
+                    style={{
+                      flex: 1,
+                      background: active ? "rgba(200,149,108,0.18)" : "rgba(255,255,255,0.04)",
+                      border: active ? "1px solid rgba(200,149,108,0.45)" : "1px solid rgba(255,255,255,0.06)",
+                      borderRadius: 8, padding: "9px 0", cursor: "pointer",
+                      color: active ? "#c8956c" : "#9a8f84",
+                      fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: active ? 600 : 400,
+                      transition: "all 0.15s",
+                    }}>{label}</button>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ marginBottom: 14 }}>
             <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9a8f84", marginBottom: 10 }}>Adjust if needed</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {[["Calories","calories","kcal"],["Protein","protein","g"],["Carbs","carbs","g"],["Fat","fat","g"],["Fiber","fiber","g"]].map(([label, key, unit]) => (
@@ -589,7 +633,7 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
           </div>
           {result.notes && <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#6b6059", fontStyle: "italic", marginBottom: 14, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>{result.notes}</div>}
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => onLog(edited)} style={{ flex: 1, background: "#c8956c", border: "none", borderRadius: 10, padding: "13px", color: "#1e1a17", fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Log Entry</button>
+            <button onClick={() => onLog({ ...edited, portion })} style={{ flex: 1, background: "#c8956c", border: "none", borderRadius: 10, padding: "13px", color: "#1e1a17", fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Log Entry</button>
             <button onClick={onClose} style={{ flex: 1, background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "13px", color: "#9a8f84", fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer" }}>Discard</button>
           </div>
         </>)}
