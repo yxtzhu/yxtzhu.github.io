@@ -592,7 +592,12 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
         fat: Math.round(c.fat_g || 0),
         fiber: Math.round(c.fiber_g || 0),
       })) : [];
-      const r = { dish: p.dish || "Unknown", description: p.description || "", confidence: p.confidence || "medium", serving_assumption: p.serving_assumption || "unknown", scale_reference: p.scale_reference || "", components, biggest_uncertainty: p.biggest_uncertainty || "", total_grams: Math.round(p.total_grams || 0), calories: Math.round(p.calories || 0), protein: Math.round(p.protein_g || 0), carbs: Math.round(p.carbs_g || 0), fat: Math.round(p.fat_g || 0), fiber: Math.round(p.fiber_g || 0), notes: p.notes || "" };
+      // Derive top-level totals from component sums so the breakdown and the
+      // Calories/macro fields always agree. The model is asked to keep them
+      // equal but frequently returns mismatched figures.
+      const sum = k => components.reduce((a, c) => a + (c[k] || 0), 0);
+      const hasComponents = components.length > 0;
+      const r = { dish: p.dish || "Unknown", description: p.description || "", confidence: p.confidence || "medium", serving_assumption: p.serving_assumption || "unknown", scale_reference: p.scale_reference || "", components, biggest_uncertainty: p.biggest_uncertainty || "", total_grams: hasComponents ? sum("grams") : Math.round(p.total_grams || 0), calories: hasComponents ? sum("kcal") : Math.round(p.calories || 0), protein: hasComponents ? sum("protein") : Math.round(p.protein_g || 0), carbs: hasComponents ? sum("carbs") : Math.round(p.carbs_g || 0), fat: hasComponents ? sum("fat") : Math.round(p.fat_g || 0), fiber: hasComponents ? sum("fiber") : Math.round(p.fiber_g || 0), notes: p.notes || "" };
       setResult(r); setEdited(r); setPortion(1); setStatus("done");
     } catch (e) { setError(e.message || "Analysis failed."); setStatus("error"); }
   };
