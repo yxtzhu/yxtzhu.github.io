@@ -552,7 +552,7 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [
-            { text: 'Analyze this food image. Return ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"notes":"caveats"}' },
+            { text: 'Analyze this food image. The calories and macros must be for the ENTIRE quantity of food visible in the image (the full portion shown), not a standard serving size. If the photo shows leftovers / a partially eaten plate, also estimate what fraction of the original full portion is still remaining as "remaining_fraction" (1 = untouched, 0.5 = half eaten, etc.); use 1 if it looks untouched or if you cannot tell. Return ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"remaining_fraction":1,"notes":"caveats"}' },
             { inline_data: { mime_type: mimeType, data: base64 } }
           ]}],
           generationConfig: { temperature: 0.1 }
@@ -563,7 +563,9 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
       let text = (data.candidates?.[0]?.content?.parts?.[0]?.text || "").replace(/```json|```/g, "").trim();
       const p = JSON.parse(text);
       const r = { dish: p.dish || "Unknown", description: p.description || "", confidence: p.confidence || "medium", calories: Math.round(p.calories || 0), protein: Math.round(p.protein_g || 0), carbs: Math.round(p.carbs_g || 0), fat: Math.round(p.fat_g || 0), fiber: Math.round(p.fiber_g || 0), notes: p.notes || "" };
-      setResult(r); setEdited(r); setPortion(1); setStatus("done");
+      const suggested = Number.isFinite(p.remaining_fraction) ? p.remaining_fraction : 1;
+      const snapped = PORTION_OPTIONS.reduce((best, o) => Math.abs(o.value - suggested) < Math.abs(best - suggested) ? o.value : best, 1);
+      setResult(r); setEdited({ ...r, ...scaleMacros(r, snapped) }); setPortion(snapped); setStatus("done");
     } catch (e) { setError(e.message || "Analysis failed."); setStatus("error"); }
   };
 
