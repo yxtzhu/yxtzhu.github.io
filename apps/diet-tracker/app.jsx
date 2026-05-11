@@ -771,6 +771,14 @@ function App() {
   const fileRef = useRef();
 
   useEffect(() => {
+    // Ask WebKit to mark this origin's storage as persistent. Without this,
+    // iOS treats both localStorage and IndexedDB as evictable and can wipe an
+    // installed PWA's data under storage pressure or ITP heuristics — even
+    // when usage is tiny. For installed home-screen PWAs this is typically
+    // granted automatically; for plain Safari tabs it may be denied.
+    if (navigator.storage?.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
     (async () => {
       let entries = null;
       try {
