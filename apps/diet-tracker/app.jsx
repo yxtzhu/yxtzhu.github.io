@@ -552,7 +552,7 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [
-            { text: 'Analyze this food image. Return ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"notes":"caveats"}' },
+            { text: 'Analyze this food image. The calories and macros must be for the ENTIRE quantity of food visible in the image (the full portion shown), not a standard serving size. Return ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"notes":"caveats"}' },
             { inline_data: { mime_type: mimeType, data: base64 } }
           ]}],
           generationConfig: { temperature: 0.1 }
