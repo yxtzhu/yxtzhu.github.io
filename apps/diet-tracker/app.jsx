@@ -13,9 +13,40 @@ const todayKey = () => new Date().toISOString().slice(0, 10);
 const load = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
 
-// Downscale a data URL to a small JPEG so entries fit comfortably in
-// localStorage. Phone photos arrive as multi-MB base64 strings; storing them
-// raw blows past iOS Safari's ~5MB quota and silently drops the whole save.
+// Entries live in IndexedDB instead of localStorage. iOS Safari aggressively
+// evicts localStorage for installed PWAs under storage pressure, which wiped
+// the entire history. IDB has a much larger quota and survives eviction much
+// better. The tiny settings (API key, targets, health) stay in localStorage.
+const IDB_NAME = "dietTracker";
+const IDB_STORE = "kv";
+const IDB_ENTRIES_KEY = "allEntries";
+
+const openIDB = () => new Promise((resolve, reject) => {
+  const req = indexedDB.open(IDB_NAME, 1);
+  req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+  req.onsuccess = () => resolve(req.result);
+  req.onerror = () => reject(req.error);
+});
+
+const idbGet = (key) => openIDB().then(db => new Promise((resolve, reject) => {
+  const tx = db.transaction(IDB_STORE, "readonly");
+  const req = tx.objectStore(IDB_STORE).get(key);
+  req.onsuccess = () => resolve(req.result);
+  req.onerror = () => reject(req.error);
+}));
+
+const idbPut = (key, value) => openIDB().then(db => new Promise((resolve, reject) => {
+  const tx = db.transaction(IDB_STORE, "readwrite");
+  tx.objectStore(IDB_STORE).put(value, key);
+  tx.oncomplete = () => resolve(true);
+  tx.onerror = () => reject(tx.error);
+  tx.onabort = () => reject(tx.error);
+}));
+
+// Downscale a data URL to a small JPEG. Phone photos arrive as multi-MB
+// base64 strings; even with IDB's roomier quota, dozens of full-size photos
+// add up fast. Drop the image entirely on failure rather than falling back
+// to the original — a single unresizable photo could otherwise bloat storage.
 const resizeImage = (dataUrl, maxDim = 240, quality = 0.55) => new Promise(resolve => {
   if (!dataUrl) { resolve(null); return; }
   const img = new Image();
@@ -28,9 +59,9 @@ const resizeImage = (dataUrl, maxDim = 240, quality = 0.55) => new Promise(resol
     try {
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       resolve(canvas.toDataURL('image/jpeg', quality));
-    } catch { resolve(dataUrl); }
+    } catch { resolve(null); }
   };
-  img.onerror = () => resolve(dataUrl);
+  img.onerror = () => resolve(null);
   img.src = dataUrl;
 });
 
@@ -729,14 +760,43 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
 function App() {
   const [apiKey, setApiKey] = useState(() => load(STORAGE.key, ""));
   const [targets, setTargets] = useState(() => load(STORAGE.targets, DEFAULTS));
-  const [allEntries, setAllEntries] = useState(() => load(STORAGE.entries, {}));
+  const [allEntries, setAllEntries] = useState({});
   const [rawHealth, setRawHealth] = useState(() => load(STORAGE.health, HEALTH_DEFAULTS));
   const [tab, setTab] = useState("today");
   const [showSettings, setShowSettings] = useState(false);
   const [pendingImage, setPendingImage] = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
   const [storageError, setStorageError] = useState(false);
+  const entriesLoadedRef = useRef(false);
   const fileRef = useRef();
+
+  useEffect(() => {
+    // Ask WebKit to mark this origin's storage as persistent. Without this,
+    // iOS treats both localStorage and IndexedDB as evictable and can wipe an
+    // installed PWA's data under storage pressure or ITP heuristics — even
+    // when usage is tiny. For installed home-screen PWAs this is typically
+    // granted automatically; for plain Safari tabs it may be denied.
+    if (navigator.storage?.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+    (async () => {
+      let entries = null;
+      try {
+        entries = await idbGet(IDB_ENTRIES_KEY);
+      } catch { /* IDB unavailable — fall back to localStorage below */ }
+      if (!entries) {
+        const legacy = load(STORAGE.entries, null);
+        if (legacy && Object.keys(legacy).length) {
+          entries = legacy;
+          try { await idbPut(IDB_ENTRIES_KEY, legacy); } catch { /* keep going */ }
+        } else {
+          entries = {};
+        }
+      }
+      setAllEntries(entries);
+      entriesLoadedRef.current = true;
+    })();
+  }, []);
 
   const processedHealth = processPastDays(rawHealth, allEntries, targets);
 
@@ -774,9 +834,12 @@ function App() {
   })();
 
   const saveEntries = (updated) => {
+    if (!entriesLoadedRef.current) return;
     const next = { ...allEntries, [todayKey()]: updated };
     setAllEntries(next);
-    setStorageError(!save(STORAGE.entries, next));
+    idbPut(IDB_ENTRIES_KEY, next)
+      .then(() => setStorageError(false))
+      .catch(() => setStorageError(!save(STORAGE.entries, next)));
   };
 
   const handleFile = (file) => {
@@ -786,9 +849,25 @@ function App() {
     reader.readAsDataURL(file);
   };
 
+  // Persist only the fields the rest of the app reads back. The analyzer
+  // returns extra context (components breakdown, scale reference, notes about
+  // uncertainty) that's useful inside the modal but never displayed once the
+  // entry is logged, so dropping it keeps each saved entry small.
   const handleLog = async (data) => {
     const image = await resizeImage(pendingImage);
-    const entry = { id: Date.now(), image, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), ...data };
+    const entry = {
+      id: Date.now(),
+      image,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      dish: data.dish || "",
+      calories: Math.round(data.calories || 0),
+      protein: Math.round(data.protein || 0),
+      carbs: Math.round(data.carbs || 0),
+      fat: Math.round(data.fat || 0),
+      fiber: Math.round(data.fiber || 0),
+      notes: data.notes || "",
+      portion: data.portion ?? 1,
+    };
     saveEntries([entry, ...entries]);
     setPendingImage(null);
   };
