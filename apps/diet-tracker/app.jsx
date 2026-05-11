@@ -573,7 +573,7 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [
-            { text: 'Estimate nutrition for ALL food visible in this image combined — every item shown, summed together. This is NOT a per-serving estimate; do not divide by number of people.\n\nReason step-by-step:\n1. List every distinct food item visible.\n2. Estimate the total weight in grams of all items combined (the actual amount shown, not a standard serving).\n3. Compute calories and macros for that total weight.\n\nSet "serving_assumption" to "entire_image" if you summed everything shown, "single_serving" if you returned per-person values, or "other" otherwise. The expected value is "entire_image" — if you find yourself doing otherwise, recompute before answering.\n\nReturn ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","total_grams":0,"serving_assumption":"entire_image|single_serving|other","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"notes":"caveats"}' },
+            { text: 'Estimate nutrition for ALL food visible in this image combined — every item shown, summed together. This is NOT a per-serving estimate; do not divide by number of people.\n\nReason step-by-step:\n1. SCALE — identify a size anchor visible in the image (utensil, hand, chopsticks, plate edge, standard glass) and state it in scale_reference. Use it to gauge portions; do not assume a plate is standard-sized without evidence.\n2. COMPONENTS — list every distinct item. Include added cooking fat as its own component if the food looks fried, sautéed, glazed, or visibly oily — added oil/butter is the single biggest source of restaurant-meal calorie variance. For each component, estimate grams from the scale anchor, then compute kcal and macros from standard nutritional data.\n3. TOTALS — sum across components. Top-level calories/protein_g/carbs_g/fat_g/fiber_g must equal the component sums.\n4. UNCERTAINTY — name the single assumption most likely to be wrong (e.g., "sauce volume — could swing ±150 kcal", "amount of cooking oil") in biggest_uncertainty.\n\nSet serving_assumption to "entire_image" if you summed everything shown, "single_serving" if you returned per-person values, or "other" otherwise. The expected value is "entire_image" — if you find yourself doing otherwise, recompute before answering.\n\nReturn ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","scale_reference":"e.g. fork (~20cm)","components":[{"name":"item","grams":0,"kcal":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}],"total_grams":0,"serving_assumption":"entire_image|single_serving|other","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"biggest_uncertainty":"what to verify","notes":"caveats"}' },
             { inline_data: { mime_type: mimeType, data: base64 } }
           ]}],
           generationConfig: { temperature: 0.1 }
@@ -583,7 +583,16 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
       if (data.error) throw new Error(data.error.message);
       let text = (data.candidates?.[0]?.content?.parts?.[0]?.text || "").replace(/```json|```/g, "").trim();
       const p = JSON.parse(text);
-      const r = { dish: p.dish || "Unknown", description: p.description || "", confidence: p.confidence || "medium", serving_assumption: p.serving_assumption || "unknown", total_grams: Math.round(p.total_grams || 0), calories: Math.round(p.calories || 0), protein: Math.round(p.protein_g || 0), carbs: Math.round(p.carbs_g || 0), fat: Math.round(p.fat_g || 0), fiber: Math.round(p.fiber_g || 0), notes: p.notes || "" };
+      const components = Array.isArray(p.components) ? p.components.map(c => ({
+        name: c.name || "item",
+        grams: Math.round(c.grams || 0),
+        kcal: Math.round(c.kcal || 0),
+        protein: Math.round(c.protein_g || 0),
+        carbs: Math.round(c.carbs_g || 0),
+        fat: Math.round(c.fat_g || 0),
+        fiber: Math.round(c.fiber_g || 0),
+      })) : [];
+      const r = { dish: p.dish || "Unknown", description: p.description || "", confidence: p.confidence || "medium", serving_assumption: p.serving_assumption || "unknown", scale_reference: p.scale_reference || "", components, biggest_uncertainty: p.biggest_uncertainty || "", total_grams: Math.round(p.total_grams || 0), calories: Math.round(p.calories || 0), protein: Math.round(p.protein_g || 0), carbs: Math.round(p.carbs_g || 0), fat: Math.round(p.fat_g || 0), fiber: Math.round(p.fiber_g || 0), notes: p.notes || "" };
       setResult(r); setEdited(r); setPortion(1); setStatus("done");
     } catch (e) { setError(e.message || "Analysis failed."); setStatus("error"); }
   };
@@ -612,7 +621,10 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
             {status === "done" && result && (<>
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, color: "#f0e8df", marginBottom: 2 }}>{result.dish}</div>
               <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#9a8f84", marginBottom: 8 }}>{result.description}</div>
-              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: cc[result.confidence], background: `${cc[result.confidence]}22`, padding: "3px 8px", borderRadius: 4 }}>{result.confidence} confidence</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: cc[result.confidence], background: `${cc[result.confidence]}22`, padding: "3px 8px", borderRadius: 4 }}>{result.confidence} confidence</span>
+                {result.scale_reference && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059" }}>scale: {result.scale_reference}</span>}
+              </div>
             </>)}
           </div>
         </div>
@@ -620,6 +632,29 @@ const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
           {result.serving_assumption && result.serving_assumption !== "entire_image" && (
             <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#e07a5f", marginBottom: 14, padding: "10px 12px", background: "rgba(224,122,95,0.08)", border: "1px solid rgba(224,122,95,0.25)", borderRadius: 8, lineHeight: 1.4 }}>
               ⚠ Estimate is for {result.serving_assumption === "single_serving" ? "a single serving" : "part of the image"}, not everything shown. Adjust below if you ate more.
+            </div>
+          )}
+          {result.components && result.components.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9a8f84", marginBottom: 8 }}>Breakdown</div>
+              <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "4px 12px" }}>
+                {result.components.map((c, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "8px 0", borderBottom: i < result.components.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                    <div style={{ minWidth: 0, flex: 1, marginRight: 12 }}>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#f0e8df", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059" }}>{Math.round(c.grams * portion)}g</div>
+                    </div>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 16, color: "#c8956c", flexShrink: 0 }}>
+                      {Math.round(c.kcal * portion)}<span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, color: "#6b6059", marginLeft: 3 }}>kcal</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {result.biggest_uncertainty && (
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#c8956c", marginBottom: 14, padding: "10px 12px", background: "rgba(200,149,108,0.08)", border: "1px solid rgba(200,149,108,0.25)", borderRadius: 8, lineHeight: 1.4 }}>
+              <span style={{ fontWeight: 600, letterSpacing: "0.05em" }}>Verify if unsure · </span>{result.biggest_uncertainty}
             </div>
           )}
           <div style={{ marginBottom: 14 }}>
