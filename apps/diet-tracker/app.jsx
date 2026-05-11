@@ -11,7 +11,28 @@ const STORAGE = {
 };
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const load = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
-const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
+
+// Downscale a data URL to a small JPEG so entries fit comfortably in
+// localStorage. Phone photos arrive as multi-MB base64 strings; storing them
+// raw blows past iOS Safari's ~5MB quota and silently drops the whole save.
+const resizeImage = (dataUrl, maxDim = 240, quality = 0.55) => new Promise(resolve => {
+  if (!dataUrl) { resolve(null); return; }
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    try {
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    } catch { resolve(dataUrl); }
+  };
+  img.onerror = () => resolve(dataUrl);
+  img.src = dataUrl;
+});
 
 // Health engine
 const HEALTH_DEFAULTS = { score: 100, dead: false, goodDayStreak: 0, lastProcessedDate: null };
@@ -699,6 +720,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [pendingImage, setPendingImage] = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
+  const [storageError, setStorageError] = useState(false);
   const fileRef = useRef();
 
   const processedHealth = processPastDays(rawHealth, allEntries, targets);
@@ -739,7 +761,7 @@ function App() {
   const saveEntries = (updated) => {
     const next = { ...allEntries, [todayKey()]: updated };
     setAllEntries(next);
-    save(STORAGE.entries, next);
+    setStorageError(!save(STORAGE.entries, next));
   };
 
   const handleFile = (file) => {
@@ -749,8 +771,9 @@ function App() {
     reader.readAsDataURL(file);
   };
 
-  const handleLog = (data) => {
-    const entry = { id: Date.now(), image: pendingImage, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), ...data };
+  const handleLog = async (data) => {
+    const image = await resizeImage(pendingImage);
+    const entry = { id: Date.now(), image, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), ...data };
     saveEntries([entry, ...entries]);
     setPendingImage(null);
   };
@@ -795,6 +818,11 @@ function App() {
       </div>
 
       <div style={{ padding: "14px 20px", paddingBottom: `calc(var(--safe-bottom) + 120px)` }}>
+        {storageError && (
+          <div style={{ background: "rgba(224,122,95,0.10)", border: "1px solid rgba(224,122,95,0.35)", borderRadius: 10, padding: "10px 12px", marginBottom: 14, fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#e07a5f", lineHeight: 1.4 }}>
+            Couldn't save — local storage is full. Delete some older entries to free space.
+          </div>
+        )}
         {tab === "today" && (<>
           <Tamagotchi health={processedHealth} liveHealth={liveHealth} streak={streak} />
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, padding: "18px", marginBottom: 14 }}>
