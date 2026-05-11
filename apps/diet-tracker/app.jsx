@@ -552,7 +552,17 @@ const PORTION_OPTIONS = [
   { label: "1×", value: 1 },
 ];
 const MACRO_KEYS = ["calories", "protein", "carbs", "fat", "fiber"];
-const scaleMacros = (base, p) => MACRO_KEYS.reduce((a, k) => (a[k] = Math.round((base[k] || 0) * p), a), {});
+// Sum each macro across components (rounding per item) so the Adjust fields
+// match the per-row values shown in the Breakdown. Falls back to scaling the
+// pre-summed totals when no components are present.
+const scaleMacros = (base, p) => {
+  const cs = base.components;
+  if (Array.isArray(cs) && cs.length) {
+    const sum = k => cs.reduce((s, c) => s + Math.round((c[k] || 0) * p), 0);
+    return { calories: sum("kcal"), protein: sum("protein"), carbs: sum("carbs"), fat: sum("fat"), fiber: sum("fiber") };
+  }
+  return MACRO_KEYS.reduce((a, k) => (a[k] = Math.round((base[k] || 0) * p), a), {});
+};
 
 // Analyze modal
 const AnalyzeModal = ({ image, apiKey, onLog, onClose }) => {
