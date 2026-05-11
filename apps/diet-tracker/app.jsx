@@ -407,8 +407,8 @@ const CalendarView = ({ allEntries, targets }) => {
   const getDayStatus = (day) => {
     const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const es = allEntries[key] || [];
-    if (!es.length) return null;
     const total = es.reduce((a, e) => a + (e.calories || 0), 0);
+    if (total === 0) return null;
     const pct = total / (targets.calories || 1);
     if (pct >= 0.85 && pct <= 1.05) return "hit";
     if (pct > 1.05) return "over";
@@ -449,8 +449,8 @@ const CalendarView = ({ allEntries, targets }) => {
           );
         })}
       </div>
-      <div style={{ display: "flex", gap: 16, marginTop: 20, justifyContent: "center" }}>
-        {[["hit","#7eb8a4","On target"],["over","#e07a5f","Over"],["under","#c8956c","Under"]].map(([s, c, l]) => (
+      <div style={{ display: "flex", gap: 16, marginTop: 20, justifyContent: "center", flexWrap: "wrap" }}>
+        {[["hit","#7eb8a4","On target"],["over","#e07a5f","Over"],["under","#c8956c","Under"],["none","#3d3530","Not logged"]].map(([s, c, l]) => (
           <div key={s} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: c }} />
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059" }}>{l}</span>
