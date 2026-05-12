@@ -8,7 +8,16 @@ const STORAGE = {
   targets: "dietTrackerTargets",
   entries: "dietTrackerEntries",
   health: "dietTrackerHealth",       // { score, dead, goodDayStreak, lastProcessedDate }
+  // Sentinel records the last successful save so we can detect a suspicious
+  // empty load (IDB came back empty even though we know we had data). Without
+  // this, a transient IDB failure would silently get committed as an empty
+  // "fresh start" the next time the user adds anything.
+  sentinel: "dietTrackerSentinel",   // { savedAt, dateCount, entryCount }
+  // Tiny ring buffer of recent storage events (load result, save errors,
+  // persist grant) for the diagnostics panel.
+  diagLog: "dietTrackerDiagLog",     // [{ at, kind, detail }]
 };
+const DIAG_LOG_MAX = 20;
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const load = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
@@ -42,6 +51,42 @@ const idbPut = (key, value) => openIDB().then(db => new Promise((resolve, reject
   tx.onerror = () => reject(tx.error);
   tx.onabort = () => reject(tx.error);
 }));
+
+const countEntries = (entries) => {
+  if (!entries) return { dateCount: 0, entryCount: 0 };
+  const dates = Object.keys(entries);
+  let entryCount = 0;
+  for (const d of dates) entryCount += (entries[d] || []).length;
+  return { dateCount: dates.length, entryCount };
+};
+
+const updateSentinel = (entries) => {
+  const { dateCount, entryCount } = countEntries(entries);
+  save(STORAGE.sentinel, { savedAt: Date.now(), dateCount, entryCount });
+};
+
+const appendDiag = (kind, detail) => {
+  const log = load(STORAGE.diagLog, []);
+  log.unshift({ at: Date.now(), kind, detail: detail ? String(detail).slice(0, 200) : "" });
+  save(STORAGE.diagLog, log.slice(0, DIAG_LOG_MAX));
+};
+
+const formatBytes = (n) => {
+  if (n == null) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+};
+
+const formatRelative = (ts) => {
+  if (!ts) return "never";
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+};
 
 // Downscale a data URL to a small JPEG. Phone photos arrive as multi-MB
 // base64 strings; even with IDB's roomier quota, dozens of full-size photos
@@ -538,11 +583,23 @@ const EditModal = ({ entry, onSave, onClose }) => {
 };
 
 // Settings panel
-const SettingsPanel = ({ apiKey, setApiKey, targets, setTargets, onClose }) => {
+const SettingsPanel = ({ apiKey, setApiKey, targets, setTargets, diag, loadedCounts, onRefreshDiag, onClose }) => {
   const [localKey, setLocalKey] = useState(apiKey);
   const [lt, setLt] = useState({ ...targets });
   const setT = (k, v) => setLt(p => ({ ...p, [k]: Number(v) }));
   const handleSave = () => { setApiKey(localKey); setTargets(lt); save(STORAGE.key, localKey); save(STORAGE.targets, lt); onClose(); };
+  useEffect(() => { onRefreshDiag?.(); }, []);
+  const persistLabel = diag?.persisted === true ? "Granted" : diag?.persisted === false ? "Denied (evictable)" : "Unknown";
+  const persistColor = diag?.persisted === true ? "#7eb8a4" : diag?.persisted === false ? "#e07a5f" : "#9a8f84";
+  const loadColor = diag?.loadResult === "from-idb" || diag?.loadResult === "from-legacy" ? "#7eb8a4"
+                  : diag?.loadResult === "suspected-wipe" || diag?.loadResult === "error" ? "#e07a5f"
+                  : "#9a8f84";
+  const row = (label, value, color) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#9a8f84" }}>{label}</span>
+      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: color || "#f0e8df", textAlign: "right" }}>{value}</span>
+    </div>
+  );
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div style={{ background: "#1e1a17", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px 16px 0 0", padding: 28, width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto" }}>
@@ -568,6 +625,39 @@ const SettingsPanel = ({ apiKey, setApiKey, targets, setTargets, onClose }) => {
             ))}
           </div>
         </div>
+        {diag && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9a8f84", marginBottom: 10 }}>Storage Diagnostics</div>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "10px 14px" }}>
+              {row("Persistent storage", persistLabel, persistColor)}
+              {row("Quota used", diag.quotaUsage != null ? `${formatBytes(diag.quotaUsage)}${diag.quota ? ` / ${formatBytes(diag.quota)}` : ""}` : "—")}
+              {row("Last load", diag.loadResult || "—", loadColor)}
+              {diag.loadError ? row("Load error", diag.loadError, "#e07a5f") : null}
+              {row("Loaded now", `${loadedCounts?.entryCount ?? 0} entries / ${loadedCounts?.dateCount ?? 0} days`)}
+              {row("Last known save", diag.sentinel
+                ? `${diag.sentinel.entryCount} entries / ${diag.sentinel.dateCount} days · ${formatRelative(diag.sentinel.savedAt)}`
+                : "never")}
+              {diag.lastSaveError ? row("Last save error", diag.lastSaveError, "#e07a5f") : null}
+            </div>
+            {diag.log && diag.log.length > 0 && (
+              <details style={{ marginTop: 10 }}>
+                <summary style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059", cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase" }}>Recent storage events ({diag.log.length})</summary>
+                <div style={{ marginTop: 8, maxHeight: 180, overflowY: "auto", background: "rgba(0,0,0,0.25)", borderRadius: 8, padding: "8px 10px", fontFamily: "ui-monospace, monospace", fontSize: 10, color: "#9a8f84", lineHeight: 1.5 }}>
+                  {diag.log.map((e, i) => (
+                    <div key={i} style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                      <span style={{ color: "#6b6059" }}>{new Date(e.at).toLocaleString()} </span>
+                      <span style={{ color: e.kind === "save-error" || e.kind === "load" && /error|wipe/.test(e.detail) ? "#e07a5f" : "#c8956c" }}>{e.kind}</span>
+                      {e.detail ? ` ${e.detail}` : ""}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059", marginTop: 8, lineHeight: 1.5 }}>
+              "Persistent storage: Denied" means iOS may evict your data without warning. Install this app to your home screen via Safari Share → "Add to Home Screen" to improve persistence.
+            </p>
+          </div>
+        )}
         <button onClick={handleSave} style={{ width: "100%", background: "#c8956c", border: "none", borderRadius: 10, padding: "13px", color: "#1e1a17", fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Save Settings</button>
       </div>
     </div>
@@ -821,36 +911,111 @@ function App() {
   const [fabOpen, setFabOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [storageError, setStorageError] = useState(false);
+  const [diag, setDiag] = useState(() => ({
+    persisted: null,           // result of navigator.storage.persisted()
+    persistGranted: null,      // result of navigator.storage.persist()
+    quotaUsage: null,
+    quota: null,
+    sentinel: load(STORAGE.sentinel, null),
+    loadResult: "loading",     // loading | from-idb | from-legacy | empty | suspected-wipe | error
+    loadError: null,
+    lastSaveAt: null,
+    lastSaveError: null,
+    log: load(STORAGE.diagLog, []),
+  }));
+  const [suspectedWipe, setSuspectedWipe] = useState(false);
+  const [wipeAcked, setWipeAcked] = useState(false);
   const entriesLoadedRef = useRef(false);
   const fileRef = useRef();
 
+  const refreshQuota = async () => {
+    try {
+      const persisted = navigator.storage?.persisted ? await navigator.storage.persisted() : null;
+      const est = navigator.storage?.estimate ? await navigator.storage.estimate() : null;
+      setDiag(d => ({ ...d, persisted, quotaUsage: est?.usage ?? null, quota: est?.quota ?? null, log: load(STORAGE.diagLog, []) }));
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => {
-    // Ask WebKit to mark this origin's storage as persistent. Without this,
-    // iOS treats both localStorage and IndexedDB as evictable and can wipe an
-    // installed PWA's data under storage pressure or ITP heuristics — even
-    // when usage is tiny. For installed home-screen PWAs this is typically
-    // granted automatically; for plain Safari tabs it may be denied.
-    if (navigator.storage?.persist) {
-      navigator.storage.persist().catch(() => {});
-    }
     (async () => {
-      let entries = null;
+      // Ask WebKit to mark this origin's storage as persistent. Without this,
+      // iOS treats both localStorage and IndexedDB as evictable and can wipe an
+      // installed PWA's data under storage pressure or ITP heuristics — even
+      // when usage is tiny. For installed home-screen PWAs this is typically
+      // granted automatically; for plain Safari tabs it may be denied.
+      let persistGranted = null;
+      if (navigator.storage?.persist) {
+        try { persistGranted = await navigator.storage.persist(); }
+        catch { persistGranted = false; }
+      }
+      const persistedNow = navigator.storage?.persisted ? await navigator.storage.persisted().catch(() => null) : null;
+      const est = navigator.storage?.estimate ? await navigator.storage.estimate().catch(() => null) : null;
+      const sentinel = load(STORAGE.sentinel, null);
+
+      let entries = null, loadError = null;
       try {
         entries = await idbGet(IDB_ENTRIES_KEY);
-      } catch { /* IDB unavailable — fall back to localStorage below */ }
-      if (!entries) {
+      } catch (e) {
+        loadError = e?.message || String(e);
+      }
+
+      let loadResult, wipeSuspected = false;
+      if (!entries || !Object.keys(entries).length) {
         const legacy = load(STORAGE.entries, null);
         if (legacy && Object.keys(legacy).length) {
           entries = legacy;
-          try { await idbPut(IDB_ENTRIES_KEY, legacy); } catch { /* keep going */ }
+          loadResult = "from-legacy";
+          try { await idbPut(IDB_ENTRIES_KEY, legacy); updateSentinel(legacy); }
+          catch { /* keep going */ }
+        } else if (loadError) {
+          entries = {};
+          loadResult = "error";
+          wipeSuspected = !!(sentinel && sentinel.entryCount > 0);
+        } else if (sentinel && sentinel.entryCount > 0) {
+          // IDB read succeeded but came back empty even though we had data
+          // before — almost certainly an eviction. Refuse to overwrite.
+          entries = {};
+          loadResult = "suspected-wipe";
+          wipeSuspected = true;
         } else {
           entries = {};
+          loadResult = "empty";
         }
+      } else {
+        loadResult = "from-idb";
       }
+
+      appendDiag("load", `${loadResult}${loadError ? ` (${loadError})` : ""} sentinel=${sentinel ? sentinel.entryCount : 0} loaded=${countEntries(entries).entryCount}`);
+
       setAllEntries(entries);
-      entriesLoadedRef.current = true;
+      setSuspectedWipe(wipeSuspected);
+      // When we suspect a wipe, hold off on writes until the user acknowledges
+      // — otherwise the next save would commit `{}` and erase any chance of
+      // recovery (e.g., reopening the PWA later when iOS hands back the data).
+      entriesLoadedRef.current = !wipeSuspected;
+      setDiag(d => ({
+        ...d,
+        persistGranted,
+        persisted: persistedNow,
+        quotaUsage: est?.usage ?? null,
+        quota: est?.quota ?? null,
+        sentinel,
+        loadResult,
+        loadError,
+        log: load(STORAGE.diagLog, []),
+      }));
     })();
   }, []);
+
+  const acknowledgeWipe = () => {
+    appendDiag("wipe-acked", `prior sentinel ${diag.sentinel?.entryCount ?? 0} entries`);
+    // Reset sentinel so we don't keep nagging.
+    save(STORAGE.sentinel, { savedAt: Date.now(), dateCount: 0, entryCount: 0 });
+    setSuspectedWipe(false);
+    setWipeAcked(true);
+    entriesLoadedRef.current = true;
+    setDiag(d => ({ ...d, sentinel: load(STORAGE.sentinel, null), log: load(STORAGE.diagLog, []) }));
+  };
 
   const processedHealth = processPastDays(rawHealth, allEntries, targets);
 
@@ -892,8 +1057,18 @@ function App() {
     const next = { ...allEntries, [todayKey()]: updated };
     setAllEntries(next);
     idbPut(IDB_ENTRIES_KEY, next)
-      .then(() => setStorageError(false))
-      .catch(() => setStorageError(!save(STORAGE.entries, next)));
+      .then(() => {
+        updateSentinel(next);
+        setStorageError(false);
+        setDiag(d => ({ ...d, sentinel: load(STORAGE.sentinel, null), lastSaveAt: Date.now(), lastSaveError: null }));
+      })
+      .catch((e) => {
+        appendDiag("save-error", e?.message || String(e));
+        const lsOk = save(STORAGE.entries, next);
+        if (lsOk) updateSentinel(next);
+        setStorageError(!lsOk);
+        setDiag(d => ({ ...d, lastSaveError: e?.message || String(e), sentinel: load(STORAGE.sentinel, null), log: load(STORAGE.diagLog, []) }));
+      });
   };
 
   const handleFile = (file) => {
@@ -972,6 +1147,26 @@ function App() {
             Couldn't save — local storage is full. Delete some older entries to free space.
           </div>
         )}
+        {suspectedWipe && (
+          <div style={{ background: "rgba(224,122,95,0.12)", border: "1px solid rgba(224,122,95,0.45)", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#f0e8df", lineHeight: 1.5 }}>
+            <div style={{ fontWeight: 600, color: "#e07a5f", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase", fontSize: 10 }}>Storage Wiped</div>
+            <div style={{ marginBottom: 10 }}>
+              Your stored data couldn't be loaded. Last known save: <b>{diag.sentinel?.entryCount ?? 0}</b> entries across <b>{diag.sentinel?.dateCount ?? 0}</b> days
+              {diag.sentinel?.savedAt ? <> ({formatRelative(diag.sentinel.savedAt)})</> : null}.
+              <br />New entries are blocked until you confirm — saving now would commit an empty store and erase any chance of recovery.
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button onClick={() => window.location.reload()} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 12px", color: "#f0e8df", fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}>Try Reloading</button>
+              <button onClick={acknowledgeWipe} style={{ background: "#e07a5f", border: "none", borderRadius: 8, padding: "8px 12px", color: "#1e1a17", fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Start Fresh</button>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 10, color: "#9a8f84" }}>Open ⚙ Settings → Storage diagnostics for details.</div>
+          </div>
+        )}
+        {wipeAcked && (
+          <div style={{ background: "rgba(200,149,108,0.08)", border: "1px solid rgba(200,149,108,0.25)", borderRadius: 10, padding: "10px 12px", marginBottom: 14, fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#c8956c", lineHeight: 1.4 }}>
+            Started fresh. New entries will be saved normally.
+          </div>
+        )}
         {tab === "today" && (<>
           <Tamagotchi health={processedHealth} liveHealth={liveHealth} streak={streak} />
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, padding: "18px", marginBottom: 14 }}>
@@ -1044,7 +1239,7 @@ function App() {
       {pendingText   && <AnalyzeModal text={pendingText} apiKey={apiKey} onLog={handleLog} onClose={() => setPendingText(null)} />}
       {showTextEntry && <TextEntryModal onSubmit={t => { setShowTextEntry(false); setPendingText(t); }} onClose={() => setShowTextEntry(false)} />}
       {editingEntry  && <EditModal entry={editingEntry} onSave={handleSaveEdit} onClose={() => setEditingEntry(null)} />}
-      {showSettings  && <SettingsPanel apiKey={apiKey} setApiKey={setApiKey} targets={targets} setTargets={setTargets} onClose={() => setShowSettings(false)} />}
+      {showSettings  && <SettingsPanel apiKey={apiKey} setApiKey={setApiKey} targets={targets} setTargets={setTargets} diag={diag} loadedCounts={countEntries(allEntries)} onRefreshDiag={refreshQuota} onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
