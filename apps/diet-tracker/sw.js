@@ -1,4 +1,4 @@
-const CACHE = 'diet-tracker-v13';
+const CACHE = 'diet-tracker-v14';
 const ASSETS = ['./', './index.html', './app.js', './manifest.json', './icons/icon.svg', './icons/icon-maskable.svg'];
 
 self.addEventListener('install', e =>
