@@ -8,27 +8,32 @@ const STORAGE = {
   targets: "dietTrackerTargets",
   entries: "dietTrackerEntries",
   health: "dietTrackerHealth",       // { score, dead, goodDayStreak, lastProcessedDate }
-  // Sentinel records the last successful save so we can detect a suspicious
-  // empty load (IDB came back empty even though we know we had data). Without
-  // this, a transient IDB failure would silently get committed as an empty
-  // "fresh start" the next time the user adds anything.
-  sentinel: "dietTrackerSentinel",   // { savedAt, dateCount, entryCount }
-  // Tiny ring buffer of recent storage events (load result, save errors,
-  // persist grant) for the diagnostics panel.
-  diagLog: "dietTrackerDiagLog",     // [{ at, kind, detail }]
+  // Legacy localStorage keys for the sentinel + diag log. Sentinel/log writes
+  // moved to IndexedDB because localStorage is the storage class iOS evicts
+  // under pressure — keeping wipe-detection signals in the same place that
+  // gets wiped defeated the point. These keys are only read once on startup
+  // to migrate any pre-existing values into IDB, then removed.
+  sentinel: "dietTrackerSentinel",
+  diagLog: "dietTrackerDiagLog",
 };
 const DIAG_LOG_MAX = 20;
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const load = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
 
-// Entries live in IndexedDB instead of localStorage. iOS Safari aggressively
+// Entries, sentinel, and diag log all live in IndexedDB. iOS Safari aggressively
 // evicts localStorage for installed PWAs under storage pressure, which wiped
 // the entire history. IDB has a much larger quota and survives eviction much
 // better. The tiny settings (API key, targets, health) stay in localStorage.
 const IDB_NAME = "dietTracker";
 const IDB_STORE = "kv";
 const IDB_ENTRIES_KEY = "allEntries";
+// Sentinel records the last successful save so we can detect a suspicious
+// empty load (IDB came back empty even though we know we had data). Stored
+// in the same IDB store as entries so it shares their durability.
+const IDB_SENTINEL_KEY = "sentinel";       // { savedAt, dateCount, entryCount }
+// Ring buffer of recent storage events for the diagnostics panel.
+const IDB_DIAG_LOG_KEY = "diagLog";        // [{ at, kind, detail }]
 
 const openIDB = () => new Promise((resolve, reject) => {
   const req = indexedDB.open(IDB_NAME, 1);
@@ -60,15 +65,23 @@ const countEntries = (entries) => {
   return { dateCount: dates.length, entryCount };
 };
 
-const updateSentinel = (entries) => {
+// Returns the sentinel that was written so callers can thread it into React
+// state without a follow-up read. Persistence failures fall through silently —
+// the in-memory copy is still correct, only durability across reloads is lost.
+const updateSentinel = async (entries) => {
   const { dateCount, entryCount } = countEntries(entries);
-  save(STORAGE.sentinel, { savedAt: Date.now(), dateCount, entryCount });
+  const s = { savedAt: Date.now(), dateCount, entryCount };
+  try { await idbPut(IDB_SENTINEL_KEY, s); } catch { /* in-memory only */ }
+  return s;
 };
 
-const appendDiag = (kind, detail) => {
-  const log = load(STORAGE.diagLog, []);
+const appendDiag = async (kind, detail) => {
+  let log = [];
+  try { log = (await idbGet(IDB_DIAG_LOG_KEY)) || []; } catch { log = []; }
   log.unshift({ at: Date.now(), kind, detail: detail ? String(detail).slice(0, 200) : "" });
-  save(STORAGE.diagLog, log.slice(0, DIAG_LOG_MAX));
+  const trimmed = log.slice(0, DIAG_LOG_MAX);
+  try { await idbPut(IDB_DIAG_LOG_KEY, trimmed); } catch { /* in-memory only */ }
+  return trimmed;
 };
 
 const formatBytes = (n) => {
@@ -449,7 +462,7 @@ const portionLabel = (p) => {
 };
 
 // Entry card
-const EntryCard = ({ entry, onDelete, onEdit }) => {
+const EntryCard = ({ entry, onDelete, onEdit, readOnly = false }) => {
   const pLabel = portionLabel(entry.portion);
   const [expanded, setExpanded] = useState(false);
   return (
@@ -481,10 +494,12 @@ const EntryCard = ({ entry, onDelete, onEdit }) => {
               ))}
             </div>
             {entry.notes && <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#6b6059", fontStyle: "italic", marginBottom: 8 }}>{entry.notes}</div>}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={e => { e.stopPropagation(); onEdit(entry); }} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "#9a8f84", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Edit</button>
-              <button onClick={e => { e.stopPropagation(); onDelete(entry.id); }} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(224,122,95,0.3)", color: "#e07a5f", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Delete</button>
-            </div>
+            {!readOnly && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={e => { e.stopPropagation(); onEdit(entry); }} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "#9a8f84", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Edit</button>
+                <button onClick={e => { e.stopPropagation(); onDelete(entry.id); }} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(224,122,95,0.3)", color: "#e07a5f", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Delete</button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -493,7 +508,7 @@ const EntryCard = ({ entry, onDelete, onEdit }) => {
 };
 
 // Calendar view
-const CalendarView = ({ allEntries, targets }) => {
+const CalendarView = ({ allEntries, targets, onSelectDay }) => {
   const today = new Date();
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const year = viewDate.getFullYear(), month = viewDate.getMonth();
@@ -501,9 +516,9 @@ const CalendarView = ({ allEntries, targets }) => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthName = viewDate.toLocaleDateString([], { month: "long", year: "numeric" });
 
+  const dayKey = (day) => `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   const getDayStatus = (day) => {
-    const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const es = allEntries[key] || [];
+    const es = allEntries[dayKey(day)] || [];
     const total = es.reduce((a, e) => a + (e.calories || 0), 0);
     if (total === 0) return null;
     const pct = total / (targets.calories || 1);
@@ -513,6 +528,7 @@ const CalendarView = ({ allEntries, targets }) => {
   };
 
   const isToday = (day) => new Date(year, month, day).toDateString() === today.toDateString();
+  const isFuture = (day) => new Date(year, month, day) > today && !isToday(day);
   const statusColors = { hit: "#7eb8a4", over: "#e07a5f", under: "#c8956c" };
 
   return (
@@ -533,16 +549,23 @@ const CalendarView = ({ allEntries, targets }) => {
           const day = i + 1;
           const status = getDayStatus(day);
           const todayFlag = isToday(day);
+          const futureFlag = isFuture(day);
           return (
-            <div key={day} style={{
-              aspectRatio: "1", borderRadius: 8,
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              background: todayFlag ? "rgba(200,149,108,0.18)" : status ? `${statusColors[status]}1a` : "rgba(255,255,255,0.02)",
-              border: `1px solid ${todayFlag ? "rgba(200,149,108,0.5)" : "transparent"}`,
-            }}>
+            <button key={day}
+              onClick={() => !futureFlag && onSelectDay?.(dayKey(day))}
+              disabled={futureFlag}
+              style={{
+                aspectRatio: "1", borderRadius: 8,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                background: todayFlag ? "rgba(200,149,108,0.18)" : status ? `${statusColors[status]}1a` : "rgba(255,255,255,0.02)",
+                border: `1px solid ${todayFlag ? "rgba(200,149,108,0.5)" : "transparent"}`,
+                padding: 0, font: "inherit",
+                cursor: futureFlag ? "default" : "pointer",
+                opacity: futureFlag ? 0.35 : 1,
+              }}>
               <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: todayFlag ? "#c8956c" : "#6b6059" }}>{day}</span>
               {status && <div style={{ width: 5, height: 5, borderRadius: "50%", background: statusColors[status], marginTop: 2 }} />}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -553,6 +576,68 @@ const CalendarView = ({ allEntries, targets }) => {
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059" }}>{l}</span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+};
+
+// Read-only detail view for a past (or current) day, opened by tapping a
+// calendar cell. Mirrors the Today summary layout so the eye can compare
+// without re-learning, but hides edit/delete on entries — past-day editing is
+// a separate feature worth designing deliberately if we want it.
+const DayDetailModal = ({ dateKey, entries, targets, onClose }) => {
+  const totals = entries.reduce((acc, e) => ({
+    calories: acc.calories + (e.calories || 0),
+    protein:  acc.protein  + (e.protein  || 0),
+    carbs:    acc.carbs    + (e.carbs    || 0),
+    fat:      acc.fat      + (e.fat      || 0),
+    fiber:    acc.fiber    + (e.fiber    || 0),
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
+  // Parse as local date by appending T00 — `new Date("2026-05-12")` would be
+  // interpreted as UTC midnight and could show the previous day in negative
+  // timezones.
+  const date = new Date(dateKey + "T00:00:00");
+  const dateLabel = date.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+  const remaining = targets.calories - totals.calories;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 300, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div style={{ background: "#1e1a17", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px 16px 0 0", padding: 24, width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+          <div>
+            <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, color: "#f0e8df", margin: 0 }}>{dateLabel}</h3>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 4 }}>
+              {entries.length} {entries.length === 1 ? "entry" : "entries"}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#9a8f84", fontSize: 22, cursor: "pointer" }}>×</button>
+        </div>
+        {entries.length > 0 ? (
+          <>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, padding: "18px", marginBottom: 14 }}>
+              <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 14 }}>
+                <CalorieRing consumed={totals.calories} target={targets.calories} />
+                <div style={{ flex: 1 }}>
+                  <MacroBar label="Protein" value={totals.protein} target={targets.protein} color="#7eb8a4" />
+                  <MacroBar label="Carbs"   value={totals.carbs}   target={targets.carbs}   color="#c8956c" />
+                  <MacroBar label="Fat"     value={totals.fat}     target={targets.fat}     color="#d4a0b5" />
+                  <MacroBar label="Fiber"   value={totals.fiber}   target={targets.fiber}   color="#8fa8c8" />
+                </div>
+              </div>
+              <div style={{ textAlign: "center", paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: remaining >= 0 ? "#9a8f84" : "#e07a5f" }}>
+                  {remaining >= 0 ? `${remaining} kcal under target` : `${Math.abs(remaining)} kcal over target`}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {entries.map(entry => <EntryCard key={entry.id} entry={entry} readOnly />)}
+            </div>
+          </>
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px 0", fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#6b6059" }}>
+            No entries logged on this day.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -911,18 +996,19 @@ function App() {
   const [fabOpen, setFabOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [storageError, setStorageError] = useState(false);
-  const [diag, setDiag] = useState(() => ({
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [diag, setDiag] = useState({
     persisted: null,           // result of navigator.storage.persisted()
     persistGranted: null,      // result of navigator.storage.persist()
     quotaUsage: null,
     quota: null,
-    sentinel: load(STORAGE.sentinel, null),
+    sentinel: null,            // populated from IDB in the init effect below
     loadResult: "loading",     // loading | from-idb | from-legacy | empty | suspected-wipe | error
     loadError: null,
     lastSaveAt: null,
     lastSaveError: null,
-    log: load(STORAGE.diagLog, []),
-  }));
+    log: [],                   // populated from IDB in the init effect below
+  });
   const [suspectedWipe, setSuspectedWipe] = useState(false);
   const [wipeAcked, setWipeAcked] = useState(false);
   const entriesLoadedRef = useRef(false);
@@ -932,7 +1018,8 @@ function App() {
     try {
       const persisted = navigator.storage?.persisted ? await navigator.storage.persisted() : null;
       const est = navigator.storage?.estimate ? await navigator.storage.estimate() : null;
-      setDiag(d => ({ ...d, persisted, quotaUsage: est?.usage ?? null, quota: est?.quota ?? null, log: load(STORAGE.diagLog, []) }));
+      const log = (await idbGet(IDB_DIAG_LOG_KEY).catch(() => null)) || [];
+      setDiag(d => ({ ...d, persisted, quotaUsage: est?.usage ?? null, quota: est?.quota ?? null, log }));
     } catch { /* ignore */ }
   };
 
@@ -950,7 +1037,28 @@ function App() {
       }
       const persistedNow = navigator.storage?.persisted ? await navigator.storage.persisted().catch(() => null) : null;
       const est = navigator.storage?.estimate ? await navigator.storage.estimate().catch(() => null) : null;
-      const sentinel = load(STORAGE.sentinel, null);
+
+      // Read sentinel + diag log from IDB. If absent, one-time-migrate any
+      // pre-existing values from the legacy localStorage keys so prior history
+      // isn't lost on the upgrade, then remove the legacy keys.
+      let sentinel = await idbGet(IDB_SENTINEL_KEY).catch(() => null);
+      let diagLog = (await idbGet(IDB_DIAG_LOG_KEY).catch(() => null)) || [];
+      if (!sentinel) {
+        const legacySentinel = load(STORAGE.sentinel, null);
+        if (legacySentinel) {
+          sentinel = legacySentinel;
+          try { await idbPut(IDB_SENTINEL_KEY, legacySentinel); } catch { /* keep going */ }
+        }
+      }
+      if (!diagLog.length) {
+        const legacyLog = load(STORAGE.diagLog, []);
+        if (legacyLog.length) {
+          diagLog = legacyLog;
+          try { await idbPut(IDB_DIAG_LOG_KEY, legacyLog); } catch { /* keep going */ }
+        }
+      }
+      try { localStorage.removeItem(STORAGE.sentinel); } catch { /* ignore */ }
+      try { localStorage.removeItem(STORAGE.diagLog); } catch { /* ignore */ }
 
       let entries = null, loadError = null;
       try {
@@ -965,7 +1073,7 @@ function App() {
         if (legacy && Object.keys(legacy).length) {
           entries = legacy;
           loadResult = "from-legacy";
-          try { await idbPut(IDB_ENTRIES_KEY, legacy); updateSentinel(legacy); }
+          try { await idbPut(IDB_ENTRIES_KEY, legacy); sentinel = await updateSentinel(legacy); }
           catch { /* keep going */ }
         } else if (loadError) {
           entries = {};
@@ -985,7 +1093,7 @@ function App() {
         loadResult = "from-idb";
       }
 
-      appendDiag("load", `${loadResult}${loadError ? ` (${loadError})` : ""} sentinel=${sentinel ? sentinel.entryCount : 0} loaded=${countEntries(entries).entryCount}`);
+      const newLog = await appendDiag("load", `${loadResult}${loadError ? ` (${loadError})` : ""} sentinel=${sentinel ? sentinel.entryCount : 0} loaded=${countEntries(entries).entryCount}`);
 
       setAllEntries(entries);
       setSuspectedWipe(wipeSuspected);
@@ -1002,19 +1110,20 @@ function App() {
         sentinel,
         loadResult,
         loadError,
-        log: load(STORAGE.diagLog, []),
+        log: newLog,
       }));
     })();
   }, []);
 
-  const acknowledgeWipe = () => {
-    appendDiag("wipe-acked", `prior sentinel ${diag.sentinel?.entryCount ?? 0} entries`);
+  const acknowledgeWipe = async () => {
+    const newLog = await appendDiag("wipe-acked", `prior sentinel ${diag.sentinel?.entryCount ?? 0} entries`);
     // Reset sentinel so we don't keep nagging.
-    save(STORAGE.sentinel, { savedAt: Date.now(), dateCount: 0, entryCount: 0 });
+    const s = { savedAt: Date.now(), dateCount: 0, entryCount: 0 };
+    try { await idbPut(IDB_SENTINEL_KEY, s); } catch { /* in-memory only */ }
     setSuspectedWipe(false);
     setWipeAcked(true);
     entriesLoadedRef.current = true;
-    setDiag(d => ({ ...d, sentinel: load(STORAGE.sentinel, null), log: load(STORAGE.diagLog, []) }));
+    setDiag(d => ({ ...d, sentinel: s, log: newLog }));
   };
 
   const processedHealth = processPastDays(rawHealth, allEntries, targets);
@@ -1057,17 +1166,17 @@ function App() {
     const next = { ...allEntries, [todayKey()]: updated };
     setAllEntries(next);
     idbPut(IDB_ENTRIES_KEY, next)
-      .then(() => {
-        updateSentinel(next);
+      .then(async () => {
+        const s = await updateSentinel(next);
         setStorageError(false);
-        setDiag(d => ({ ...d, sentinel: load(STORAGE.sentinel, null), lastSaveAt: Date.now(), lastSaveError: null }));
+        setDiag(d => ({ ...d, sentinel: s, lastSaveAt: Date.now(), lastSaveError: null }));
       })
-      .catch((e) => {
-        appendDiag("save-error", e?.message || String(e));
+      .catch(async (e) => {
+        const newLog = await appendDiag("save-error", e?.message || String(e));
         const lsOk = save(STORAGE.entries, next);
-        if (lsOk) updateSentinel(next);
+        const s = await updateSentinel(next);
         setStorageError(!lsOk);
-        setDiag(d => ({ ...d, lastSaveError: e?.message || String(e), sentinel: load(STORAGE.sentinel, null), log: load(STORAGE.diagLog, []) }));
+        setDiag(d => ({ ...d, lastSaveError: e?.message || String(e), sentinel: s, log: newLog }));
       });
   };
 
@@ -1192,7 +1301,7 @@ function App() {
             </div>
           )}
         </>)}
-        {tab === "calendar" && <CalendarView allEntries={allEntries} targets={targets} />}
+        {tab === "calendar" && <CalendarView allEntries={allEntries} targets={targets} onSelectDay={setSelectedDay} />}
       </div>
 
       {tab === "today" && (<>
@@ -1239,6 +1348,7 @@ function App() {
       {pendingText   && <AnalyzeModal text={pendingText} apiKey={apiKey} onLog={handleLog} onClose={() => setPendingText(null)} />}
       {showTextEntry && <TextEntryModal onSubmit={t => { setShowTextEntry(false); setPendingText(t); }} onClose={() => setShowTextEntry(false)} />}
       {editingEntry  && <EditModal entry={editingEntry} onSave={handleSaveEdit} onClose={() => setEditingEntry(null)} />}
+      {selectedDay   && <DayDetailModal dateKey={selectedDay} entries={allEntries[selectedDay] || []} targets={targets} onClose={() => setSelectedDay(null)} />}
       {showSettings  && <SettingsPanel apiKey={apiKey} setApiKey={setApiKey} targets={targets} setTargets={setTargets} diag={diag} loadedCounts={countEntries(allEntries)} onRefreshDiag={refreshQuota} onClose={() => setShowSettings(false)} />}
     </div>
   );
