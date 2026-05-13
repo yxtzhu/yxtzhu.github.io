@@ -468,9 +468,12 @@ const portionLabel = (p) => {
 };
 
 // Entry card
-const EntryCard = ({ entry, onDelete, onEdit, readOnly = false }) => {
+const EntryCard = ({ entry, onDelete, onEdit, onMove, currentDateKey }) => {
   const pLabel = portionLabel(entry.portion);
   const [expanded, setExpanded] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [moveDate, setMoveDate] = useState(currentDateKey || todayKey());
+  const hasActions = onEdit || onDelete || onMove;
   return (
     <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "12px", display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer" }} onClick={() => setExpanded(e => !e)}>
       {entry.image
@@ -500,10 +503,21 @@ const EntryCard = ({ entry, onDelete, onEdit, readOnly = false }) => {
               ))}
             </div>
             {entry.notes && <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#6b6059", fontStyle: "italic", marginBottom: 8 }}>{entry.notes}</div>}
-            {!readOnly && (
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={e => { e.stopPropagation(); onEdit(entry); }} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "#9a8f84", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Edit</button>
-                <button onClick={e => { e.stopPropagation(); onDelete(entry.id); }} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(224,122,95,0.3)", color: "#e07a5f", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Delete</button>
+            {hasActions && !moving && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {onEdit && <button onClick={e => { e.stopPropagation(); onEdit(entry); }} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "#9a8f84", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Edit</button>}
+                {onMove && <button onClick={e => { e.stopPropagation(); setMoveDate(currentDateKey || todayKey()); setMoving(true); }} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "#9a8f84", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Move</button>}
+                {onDelete && <button onClick={e => { e.stopPropagation(); onDelete(entry.id); }} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(224,122,95,0.3)", color: "#e07a5f", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Delete</button>}
+              </div>
+            )}
+            {onMove && moving && (
+              <div onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)} max={todayKey()}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "4px 8px", color: "#f0e8df", fontFamily: "'DM Sans', sans-serif", fontSize: 12, colorScheme: "dark" }} />
+                <button onClick={e => { e.stopPropagation(); if (moveDate && moveDate !== currentDateKey) onMove(entry, moveDate); setMoving(false); }}
+                  style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "rgba(200,149,108,0.18)", border: "1px solid rgba(200,149,108,0.4)", color: "#c8956c", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 600 }}>Confirm</button>
+                <button onClick={e => { e.stopPropagation(); setMoving(false); }}
+                  style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: "#9a8f84", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Cancel</button>
               </div>
             )}
           </div>
@@ -587,11 +601,12 @@ const CalendarView = ({ allEntries, targets, onSelectDay }) => {
   );
 };
 
-// Read-only detail view for a past (or current) day, opened by tapping a
-// calendar cell. Mirrors the Today summary layout so the eye can compare
-// without re-learning, but hides edit/delete on entries — past-day editing is
-// a separate feature worth designing deliberately if we want it.
-const DayDetailModal = ({ dateKey, entries, targets, onClose }) => {
+// Day detail view for a past (or current) day, opened by tapping a calendar
+// cell. Mirrors the Today summary layout so the eye can compare without
+// re-learning. Edit/delete are still omitted — past-day macro edits are a
+// separate feature — but each entry exposes a Move action so misdated entries
+// can be reassigned to the correct day.
+const DayDetailModal = ({ dateKey, entries, targets, onMoveEntry, onClose }) => {
   const totals = entries.reduce((acc, e) => ({
     calories: acc.calories + (e.calories || 0),
     protein:  acc.protein  + (e.protein  || 0),
@@ -636,7 +651,14 @@ const DayDetailModal = ({ dateKey, entries, targets, onClose }) => {
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {entries.map(entry => <EntryCard key={entry.id} entry={entry} readOnly />)}
+              {entries.map(entry => (
+                <EntryCard
+                  key={entry.id}
+                  entry={entry}
+                  currentDateKey={dateKey}
+                  onMove={onMoveEntry ? (e, newKey) => onMoveEntry(e, dateKey, newKey) : undefined}
+                />
+              ))}
             </div>
           </>
         ) : (
@@ -1167,9 +1189,7 @@ function App() {
     return s;
   })();
 
-  const saveEntries = (updated) => {
-    if (!entriesLoadedRef.current) return;
-    const next = { ...allEntries, [todayKey()]: updated };
+  const persistAllEntries = (next) => {
     setAllEntries(next);
     idbPut(IDB_ENTRIES_KEY, next)
       .then(async () => {
@@ -1184,6 +1204,24 @@ function App() {
         setStorageError(!lsOk);
         setDiag(d => ({ ...d, lastSaveError: e?.message || String(e), sentinel: s, log: newLog }));
       });
+  };
+
+  const saveEntries = (updated) => {
+    if (!entriesLoadedRef.current) return;
+    persistAllEntries({ ...allEntries, [todayKey()]: updated });
+  };
+
+  // Reassign an entry from one day to another. Drops the source day key once
+  // it's empty so the calendar's "not logged" styling returns instead of an
+  // empty-but-present array.
+  const handleMoveEntry = (entry, fromDateKey, newDateKey) => {
+    if (!entriesLoadedRef.current || !newDateKey || fromDateKey === newDateKey) return;
+    const fromList = (allEntries[fromDateKey] || []).filter(e => e.id !== entry.id);
+    const toList = [entry, ...(allEntries[newDateKey] || [])];
+    const next = { ...allEntries, [newDateKey]: toList };
+    if (fromList.length === 0) delete next[fromDateKey];
+    else next[fromDateKey] = fromList;
+    persistAllEntries(next);
   };
 
   const handleFile = (file) => {
@@ -1303,7 +1341,16 @@ function App() {
           <LogStrip entries={entries} />
           {entries.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {entries.map(entry => <EntryCard key={entry.id} entry={entry} onDelete={handleDelete} onEdit={setEditingEntry} />)}
+              {entries.map(entry => (
+                <EntryCard
+                  key={entry.id}
+                  entry={entry}
+                  currentDateKey={todayKey()}
+                  onDelete={handleDelete}
+                  onEdit={setEditingEntry}
+                  onMove={(e, newKey) => handleMoveEntry(e, todayKey(), newKey)}
+                />
+              ))}
             </div>
           )}
         </>)}
@@ -1354,7 +1401,7 @@ function App() {
       {pendingText   && <AnalyzeModal text={pendingText} apiKey={apiKey} onLog={handleLog} onClose={() => setPendingText(null)} />}
       {showTextEntry && <TextEntryModal onSubmit={t => { setShowTextEntry(false); setPendingText(t); }} onClose={() => setShowTextEntry(false)} />}
       {editingEntry  && <EditModal entry={editingEntry} onSave={handleSaveEdit} onClose={() => setEditingEntry(null)} />}
-      {selectedDay   && <DayDetailModal dateKey={selectedDay} entries={allEntries[selectedDay] || []} targets={targets} onClose={() => setSelectedDay(null)} />}
+      {selectedDay   && <DayDetailModal dateKey={selectedDay} entries={allEntries[selectedDay] || []} targets={targets} onMoveEntry={handleMoveEntry} onClose={() => setSelectedDay(null)} />}
       {showSettings  && <SettingsPanel apiKey={apiKey} setApiKey={setApiKey} targets={targets} setTargets={setTargets} diag={diag} loadedCounts={countEntries(allEntries)} onRefreshDiag={refreshQuota} onClose={() => setShowSettings(false)} />}
     </div>
   );
