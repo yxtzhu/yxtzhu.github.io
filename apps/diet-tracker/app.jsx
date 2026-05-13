@@ -17,7 +17,11 @@ const STORAGE = {
   diagLog: "dietTrackerDiagLog",
 };
 const DIAG_LOG_MAX = 20;
-const todayKey = () => new Date().toISOString().slice(0, 10);
+// Local-time YYYY-MM-DD. toISOString() returns UTC, which silently shifts the
+// key past midnight UTC and parks today's entries on tomorrow's calendar cell
+// for users in negative-UTC timezones.
+const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const todayKey = () => dateKey(new Date());
 const load = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
 
@@ -142,12 +146,14 @@ const processPastDays = (healthState, allEntries, targets) => {
   const today = todayKey();
 
   const dates = [];
-  const cursor = new Date(lastProcessedDate || today);
+  // Parse YYYY-MM-DD as local midnight; bare "YYYY-MM-DD" is UTC, which
+  // throws cursor.getDate() into the wrong day in negative-UTC timezones.
+  const cursor = new Date(`${lastProcessedDate || today}T00:00:00`);
   if (lastProcessedDate) cursor.setDate(cursor.getDate() + 1);
-  const todayDate = new Date(today);
+  const todayDate = new Date(`${today}T00:00:00`);
 
   while (cursor < todayDate) {
-    dates.push(cursor.toISOString().slice(0, 10));
+    dates.push(dateKey(cursor));
     cursor.setDate(cursor.getDate() + 1);
   }
 
@@ -1151,7 +1157,7 @@ function App() {
     let s = 0;
     const d = new Date();
     for (let i = 0; i < 365; i++) {
-      const key = d.toISOString().slice(0, 10);
+      const key = dateKey(d);
       const es = allEntries[key] || [];
       const cal = es.reduce((a, e) => a + (e.calories || 0), 0);
       const pct = cal / (targets.calories || 1);
