@@ -22,6 +22,41 @@ const DIAG_LOG_MAX = 20;
 // for users in negative-UTC timezones.
 const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const todayKey = () => dateKey(new Date());
+
+// One-time repair for entries that the old todayKey() (UTC-based) filed under
+// the wrong bucket — late-night logs in negative-UTC timezones landed on the
+// next day's calendar cell. Each entry's `id` is the Date.now() at log time,
+// so the correct local date can be recomputed and the entry moved. Only
+// entries that are exactly one day off the local date are touched; that's
+// the precise signature of the bug and avoids disturbing anything else.
+const repairEntryDates = (allEntries) => {
+  if (!allEntries || typeof allEntries !== "object") return { entries: allEntries, moved: 0 };
+  const moves = [];
+  for (const [bucketKey, list] of Object.entries(allEntries)) {
+    if (!Array.isArray(list)) continue;
+    for (const entry of list) {
+      if (!entry || typeof entry.id !== "number" || !Number.isFinite(entry.id)) continue;
+      const correctKey = dateKey(new Date(entry.id));
+      if (correctKey === bucketKey) continue;
+      const a = new Date(`${bucketKey}T00:00:00`).getTime();
+      const b = new Date(`${correctKey}T00:00:00`).getTime();
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+      if (Math.abs(a - b) !== 86400000) continue;
+      moves.push({ entry, fromKey: bucketKey, toKey: correctKey });
+    }
+  }
+  if (!moves.length) return { entries: allEntries, moved: 0 };
+  const next = { ...allEntries };
+  const touched = new Set();
+  for (const { entry, fromKey, toKey } of moves) {
+    next[fromKey] = (next[fromKey] || []).filter(e => e !== entry);
+    next[toKey] = [...(next[toKey] || []), entry];
+    touched.add(toKey);
+    if (!next[fromKey].length) delete next[fromKey];
+  }
+  for (const k of touched) next[k].sort((x, y) => (y?.id ?? 0) - (x?.id ?? 0));
+  return { entries: next, moved: moves.length };
+};
 const load = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
 
@@ -1099,7 +1134,22 @@ function App() {
         loadResult = "from-idb";
       }
 
-      const newLog = await appendDiag("load", `${loadResult}${loadError ? ` (${loadError})` : ""} sentinel=${sentinel ? sentinel.entryCount : 0} loaded=${countEntries(entries).entryCount}`);
+      let newLog = await appendDiag("load", `${loadResult}${loadError ? ` (${loadError})` : ""} sentinel=${sentinel ? sentinel.entryCount : 0} loaded=${countEntries(entries).entryCount}`);
+
+      // Migrate entries that the old UTC-based todayKey() filed on tomorrow's
+      // bucket. Skip when we suspect a wipe — the in-memory state is {} then,
+      // and we mustn't overwrite the (possibly recoverable) IDB record.
+      if (!wipeSuspected) {
+        const { entries: repaired, moved } = repairEntryDates(entries);
+        if (moved > 0) {
+          entries = repaired;
+          try {
+            await idbPut(IDB_ENTRIES_KEY, repaired);
+            sentinel = await updateSentinel(repaired);
+          } catch { /* keep in-memory repair even if persistence fails */ }
+          newLog = await appendDiag("date-repair", `moved ${moved} entr${moved === 1 ? "y" : "ies"} to correct local date`);
+        }
+      }
 
       setAllEntries(entries);
       setSuspectedWipe(wipeSuspected);
