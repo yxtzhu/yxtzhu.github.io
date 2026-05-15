@@ -867,8 +867,8 @@ const AnalyzeModal = ({ image, text, apiKey, onLog, onClose }) => {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
-      let text = (data.candidates?.[0]?.content?.parts?.[0]?.text || "").replace(/```json|```/g, "").trim();
-      const p = JSON.parse(text);
+      const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text || "").replace(/```json|```/g, "").trim();
+      const p = JSON.parse(raw);
       const components = Array.isArray(p.components) ? p.components.map(c => ({
         name: c.name || "item",
         grams: Math.round(c.grams || 0),
