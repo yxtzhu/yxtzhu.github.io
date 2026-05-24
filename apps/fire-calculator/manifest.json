@@ -1,0 +1,25 @@
+{
+  "name": "FIRE Calculator",
+  "short_name": "FIRE",
+  "description": "Financial Independence / Retire Early planner with healthcare cost modelling and global city comparison",
+  "start_url": "/apps/fire-calculator/",
+  "scope": "/apps/fire-calculator/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0E0F0D",
+  "theme_color": "#0E0F0D",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

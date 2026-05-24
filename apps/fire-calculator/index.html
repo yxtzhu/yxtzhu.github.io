@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FIRE Calculator">
+  <meta name="theme-color" content="#0E0F0D">
+  <title>FIRE Calculator</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      background: #0E0F0D;
+      color: #E8E4D9;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Respect safe-area insets without altering the app's internal layout. */
+    #root {
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bottom);
+      padding-left: var(--safe-left);
+      padding-right: var(--safe-right);
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0.6rem;
+      color: #7A7B74;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    #loading .title { font-family: Georgia, serif; font-size: 1.4rem; color: #C9A96E; text-transform: none; letter-spacing: 0; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="title">FIRE Calculator</div>
+    <div>Loading…</div>
+  </div>
+  <div id="root"></div>
+
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+  <script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="react">
+const { useState, useMemo, useCallback } = React;
+const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Area, AreaChart, ComposedChart, Bar } = Recharts;
+
+const VARIANTS = {
+  lean:    { label: "Lean FIRE",  color: "#7EB8A4", spendMult: 0.6 },
+  regular: { label: "FIRE",       color: "#C9A96E", spendMult: 1.0 },
+  fat:     { label: "Fat FIRE",   color: "#E07B6A", spendMult: 1.6 },
+};
+
+// Healthcare phases — costs per phase in today's dollars (single person)
+// Sources: KFF, Fidelity Retiree Health Cost Estimate, AHIP data
+const HC_PHASES = [
+  {
+    key: "aca",
+    label: "ACA Marketplace",
+    ageRange: "Pre-65",
+    color: "#C9A96E",
+    baseMonthly: 650,   // premiums + avg out-of-pocket
+    annualGrowth: 0.055, // 5.5%/yr — healthcare inflation
+    note: "Full private insurance on marketplace. Most expensive per-year phase. No employer subsidy.",
+  },
+  {
+    key: "medicare",
+    label: "Medicare",
+    ageRange: "65–74",
+    color: "#7EB8A4",
+    baseMonthly: 370,   // Part B premium + Medigap + Part D
+    annualGrowth: 0.045,
+    note: "Part B (~$175/mo) + Medigap supplement (~$150/mo) + Part D drug plan (~$45/mo). Cheaper than ACA.",
+  },
+  {
+    key: "ltc",
+    label: "Medicare + LTC Risk",
+    ageRange: "75+",
+    color: "#E07B6A",
+    baseMonthly: 650,   // Medicare + long-term care probability-weighted
+    annualGrowth: 0.05,
+    note: "Medicare costs rise + long-term care risk emerges. Avg LTC costs $5k–$10k/mo; probability-weighted adds ~$280/mo.",
+  },
+];
+
+const MONTHLY_CATS = [
+  { key: "housing",       label: "Housing",       hint: "rent or mortgage" },
+  { key: "food",          label: "Food",           hint: "groceries + dining" },
+  { key: "transport",     label: "Transport",      hint: "car, gas, transit" },
+  { key: "utilities",     label: "Utilities",      hint: "electric, water, internet" },
+  { key: "entertainment", label: "Entertainment",  hint: "subscriptions, hobbies, going out" },
+  { key: "clothing",      label: "Clothing",       hint: "apparel + personal care" },
+  { key: "other",         label: "Other",          hint: "misc monthly" },
+];
+const ANNUAL_CATS = [
+  { key: "travel",  label: "Travel / Vacations", hint: "flights, hotels, trips per year" },
+  { key: "gifts",   label: "Gifts & Giving",     hint: "holidays, birthdays, donations" },
+  { key: "misc",    label: "Annual Misc",         hint: "memberships, irregular expenses" },
+];
+
+const FAT_CITIES = [
+  { city: "Lisbon",          country: "Portugal",     region: "Europe",   costIndex: 52, note: "Golden Visa access, warm climate, world-class food scene, expat-friendly" },
+  { city: "Medellín",        country: "Colombia",     region: "Americas", costIndex: 38, note: "Eternal spring climate, modern infrastructure, thriving arts scene, cheap luxury" },
+  { city: "Chiang Mai",      country: "Thailand",     region: "Asia",     costIndex: 32, note: "Excellent private healthcare, vibrant food culture, easy visa options" },
+  { city: "Porto",           country: "Portugal",     region: "Europe",   costIndex: 48, note: "Underrated gem, stunning architecture, affordable luxury dining and wine" },
+  { city: "Mexico City",     country: "Mexico",       region: "Americas", costIndex: 44, note: "World-class food, culture, art — luxury at fraction of US cost, no flight lag" },
+  { city: "Tbilisi",         country: "Georgia",      region: "Europe",   costIndex: 33, note: "Low taxes, visa-free for many nationalities, surprisingly sophisticated nightlife & food" },
+  { city: "Penang",          country: "Malaysia",     region: "Asia",     costIndex: 36, note: "MM2H visa, incredible food, English-speaking, private hospitals" },
+  { city: "Buenos Aires",    country: "Argentina",    region: "Americas", costIndex: 30, note: "European character, world-class steak, tango — USD goes very far" },
+  { city: "Valencia",        country: "Spain",        region: "Europe",   costIndex: 55, note: "Beach city, excellent public transport, paella origin, slower pace than Madrid" },
+  { city: "Bali (Seminyak)", country: "Indonesia",    region: "Asia",     costIndex: 35, note: "Luxury villas for $2–3k/mo, world food scene, growing digital nomad infrastructure" },
+  { city: "Kuala Lumpur",    country: "Malaysia",     region: "Asia",     costIndex: 38, note: "Affordable luxury high-rises, excellent malls, strong English, central Asia hub" },
+  { city: "Kyoto",           country: "Japan",        region: "Asia",     costIndex: 60, note: "Unmatched culture, superb safety, excellent healthcare — pricier but far below US/EU fat" },
+  { city: "Prague",          country: "Czech Rep.",   region: "Europe",   costIndex: 50, note: "Beautiful architecture, affordable luxury dining, EU access, high quality of life" },
+  { city: "Cape Town",       country: "South Africa", region: "Africa",   costIndex: 35, note: "Dramatic scenery, wine country nearby, luxury property cheap, English-speaking" },
+  { city: "Montevideo",      country: "Uruguay",      region: "Americas", costIndex: 48, note: "Safest in Latin America, stable democracy, excellent beef & wine, expat-welcoming" },
+];
+
+const fmt     = (n) => { if (!isFinite(n) || n < 0) return "—"; if (n >= 1_000_000) return `$${(n/1_000_000).toFixed(2)}M`; if (n >= 1_000) return `$${(n/1_000).toFixed(0)}k`; return `$${Math.round(n)}`; };
+const fmtYrs  = (n) => n >= 60 ? "60+ yrs" : n <= 0 ? "Now!" : n === 1 ? "1 yr" : `${Math.round(n)} yrs`;
+const pct     = (v, t) => (!t ? "0.0" : Math.min((v / t) * 100, 100).toFixed(1));
+const REGIONS = ["All", "Europe", "Asia", "Americas", "Africa"];
+
+// Compute projected healthcare cost for a given age, relative to FIRE age (when ACA phase starts)
+// fireAge = age when person retires (stops working)
+// currentHealthMonthly = what they enter today (used as base for ACA phase)
+function hcAtAge(targetAge, fireAge, currentHealthMonthly, hcGrowthOverride) {
+  // Before retirement: use their input (employer-covered or current situation)
+  if (targetAge < fireAge) return currentHealthMonthly * 12;
+
+  const yearsIntoRetirement = targetAge - fireAge;
+
+  if (targetAge < 65) {
+    // ACA phase: grow from their current health spend at ACA rate
+    const acaBase = Math.max(currentHealthMonthly, HC_PHASES[0].baseMonthly);
+    return acaBase * 12 * Math.pow(1 + HC_PHASES[0].annualGrowth, yearsIntoRetirement);
+  } else if (targetAge < 75) {
+    // Medicare phase: drops at 65, then grows
+    const yrsOnACA = Math.max(65 - fireAge, 0);
+    const acaBase  = Math.max(currentHealthMonthly, HC_PHASES[0].baseMonthly);
+    const acaAt65  = acaBase * Math.pow(1 + HC_PHASES[0].annualGrowth, yrsOnACA);
+    // Medicare is cheaper — apply a discount factor (approx 0.57× ACA cost)
+    const medicareBase = Math.min(acaAt65 * 0.57, HC_PHASES[1].baseMonthly * 12 * Math.pow(1 + HC_PHASES[1].annualGrowth, yrsOnACA));
+    const yrsOnMedicare = targetAge - 65;
+    return medicareBase * Math.pow(1 + HC_PHASES[1].annualGrowth, yrsOnMedicare);
+  } else {
+    // LTC phase: Medicare base + LTC risk adder, grows faster
+    const yrsOnACA      = Math.max(65 - fireAge, 0);
+    const acaBase       = Math.max(currentHealthMonthly, HC_PHASES[0].baseMonthly);
+    const acaAt65       = acaBase * Math.pow(1 + HC_PHASES[0].annualGrowth, yrsOnACA);
+    const medicareBase  = Math.min(acaAt65 * 0.57, HC_PHASES[1].baseMonthly * 12);
+    const medicareAt75  = medicareBase * Math.pow(1 + HC_PHASES[1].annualGrowth, 10);
+    const ltcBase       = medicareAt75 + (HC_PHASES[2].baseMonthly - HC_PHASES[1].baseMonthly) * 12;
+    const yrsOnLTC      = targetAge - 75;
+    return ltcBase * Math.pow(1 + HC_PHASES[2].annualGrowth, yrsOnLTC);
+  }
+}
+
+// ── Spend input with string-state (zero bug fix) ──
+function SpendRow({ label, hint, value, onChange, isMonthly }) {
+  const [raw, setRaw] = useState(value === 0 ? "" : String(value));
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: "0.68rem", color: "var(--text)" }}>{label}</div>
+        <div style={{ fontSize: "0.58rem", color: "var(--muted2)" }}>{hint} · {isMonthly ? "/mo" : "/yr"}</div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", background: "var(--input-bg)", border: "1px solid var(--border)", borderRadius: 3, padding: "0.2rem 0.4rem" }}>
+        <span style={{ color: "var(--muted)", fontSize: "0.75rem", marginRight: "0.2rem" }}>$</span>
+        <input type="number" value={raw} placeholder="0"
+          onChange={e => { setRaw(e.target.value); const n = parseFloat(e.target.value); onChange(isNaN(n) ? 0 : n); }}
+          onBlur={() => { if (raw === "" || raw === "0") setRaw(""); }}
+          style={{ background: "transparent", border: "none", outline: "none", color: "var(--text)", fontFamily: "var(--serif)", fontSize: "0.85rem", width: 72, textAlign: "right" }} />
+      </div>
+    </div>
+  );
+}
+
+function NumInput({ label, value, onChange, sub, prefix = "$" }) {
+  const [raw, setRaw] = useState(value === 0 ? "" : String(value));
+  return (
+    <div style={{ marginBottom: "1rem" }}>
+      <label style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: "0.25rem" }}>{label}</label>
+      <div style={{ display: "flex", alignItems: "center", background: "var(--input-bg)", border: "1px solid var(--border)", borderRadius: "4px", padding: "0.4rem 0.6rem" }}>
+        <span style={{ color: "var(--muted)", marginRight: "0.25rem", fontSize: "0.85rem" }}>{prefix}</span>
+        <input type="number" value={raw} placeholder="0"
+          onChange={e => { setRaw(e.target.value); const n = parseFloat(e.target.value); onChange(isNaN(n) ? 0 : n); }}
+          onBlur={() => { if (raw === "") setRaw(""); }}
+          style={{ background: "transparent", border: "none", outline: "none", color: "var(--text)", fontFamily: "var(--serif)", fontSize: "0.95rem", width: "100%" }} />
+      </div>
+      {sub && <div style={{ fontSize: "0.6rem", color: "var(--muted2)", marginTop: "0.2rem" }}>{sub}</div>}
+    </div>
+  );
+}
+
+const Slider = ({ label, value, onChange, min, max, step, format, sub }) => (
+  <div style={{ marginBottom: "1.1rem" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.2rem" }}>
+      <span style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--muted)" }}>{label}</span>
+      <span style={{ fontSize: "0.95rem", fontFamily: "var(--serif)", color: "var(--gold)" }}>{format(value)}</span>
+    </div>
+    {sub && <div style={{ fontSize: "0.6rem", color: "var(--muted2)", marginBottom: "0.25rem" }}>{sub}</div>}
+    <input type="range" min={min} max={max} step={step} value={value}
+      onChange={e => onChange(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--gold)" }} />
+    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.58rem", color: "var(--muted2)" }}>
+      <span>{format(min)}</span><span>{format(max)}</span>
+    </div>
+  </div>
+);
+
+const TABS = ["Inputs", "Spending", "Projection", "Healthcare", "Scenarios", "Cities", "⚙"];
+
+// ── CitiesTab: curated list + Gemini-powered search ──
+function CitiesTab({ savings, swr, fatAnnualHere, fatTargetHere, yrsTo, filteredCities, cityRegion, setCityRegion, citySort, setCitySort, totalAnnual, age, income, sr, geminiKey }) {
+  const [query, setQuery]       = useState("");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults]   = useState(null); // array of city assessments
+  const [searchErr, setSearchErr] = useState("");
+
+  const canSearch = !!geminiKey && query.trim().length > 2;
+
+  const runSearch = async () => {
+    if (!canSearch) return;
+    setSearching(true);
+    setResults(null);
+    setSearchErr("");
+
+    const prompt = `You are a FIRE retirement planning assistant with deep knowledge of global cost of living.
+
+The user has:
+- Current portfolio: $${savings.toLocaleString()}
+- Annual spending (US baseline): $${Math.round(totalAnnual).toLocaleString()}
+- Fat FIRE spend target (1.6× baseline): $${Math.round(fatAnnualHere).toLocaleString()}/yr
+- Fat FIRE portfolio needed at home: $${Math.round(fatTargetHere).toLocaleString()}
+- Safe withdrawal rate: ${swr}%
+
+The user is asking about: "${query.trim()}"
+
+Analyse this location (or up to 3 specific cities/areas if the query is a country or region) for Fat FIRE suitability.
+
+For each city/area return ONLY a JSON array (no markdown, no explanation outside the JSON) with this exact structure:
+[
+  {
+    "city": "City Name",
+    "country": "Country",
+    "costIndex": 45,
+    "fatMonthly": 4200,
+    "fatAnnual": 50400,
+    "portfolioNeeded": 1260000,
+    "canRetireNow": true,
+    "shortfall": 0,
+    "surplusYrs": 4,
+    "verdict": "Ready now",
+    "note": "2-3 sentence practical note covering lifestyle, visa options, healthcare, and any caveats for a Fat FIRE retiree",
+    "pros": ["pro 1", "pro 2", "pro 3"],
+    "cons": ["con 1", "con 2"]
+  }
+]
+
+Rules:
+- costIndex: cost of living relative to NYC=100 (be accurate)
+- fatMonthly/fatAnnual: estimate Fat FIRE monthly and annual spend in USD for this city (luxury lifestyle equivalent)
+- portfolioNeeded: fatAnnual / (${swr}/100)
+- canRetireNow: true if $${savings.toLocaleString()} >= portfolioNeeded
+- shortfall: max(0, portfolioNeeded - ${savings}) — how much more needed
+- surplusYrs: if canRetireNow, how many years earlier than fatTargetHere=$${Math.round(fatTargetHere).toLocaleString()} (approximate, 0 if already past)
+- verdict: one of "Ready now ✓", "Almost there", "Not yet", "Far off"
+- Be honest and specific — don't oversell or undersell
+Return ONLY the JSON array, no other text.`;
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
+          }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.error?.message || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      // Strip any markdown fences
+      const cleaned = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      setResults(Array.isArray(parsed) ? parsed : [parsed]);
+    } catch (e) {
+      setSearchErr(e.message || "Search failed");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const verdictColor = (v) => {
+    if (!v) return "var(--muted)";
+    if (v.includes("✓") || v.includes("Ready")) return "#7EB8A4";
+    if (v.includes("Almost")) return "#C9A96E";
+    if (v.includes("Far")) return "#E07B6A";
+    return "var(--muted)";
+  };
+
+  return (
+    <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      {/* Header context */}
+      <div className="card" style={{ borderLeft: "3px solid #E07B6A" }}>
+        <div className="sl">Fat FIRE Globally — Based on Your Portfolio</div>
+        <div style={{ display: "flex", gap: "0.5rem 1.5rem", flexWrap: "wrap", fontSize: "0.7rem" }}>
+          {[
+            ["Your Portfolio",    fmt(savings),        "var(--gold)"],
+            ["Fat FIRE Needed",   fmt(fatTargetHere),  "#E07B6A"],
+            ["Gap / Surplus",     savings >= fatTargetHere ? `+${fmt(savings - fatTargetHere)}` : `-${fmt(fatTargetHere - savings)}`, savings >= fatTargetHere ? "#7EB8A4" : "#E07B6A"],
+            ["Fat Spend/yr",      fmt(fatAnnualHere),  "var(--muted)"],
+          ].map(([l,v,c]) => (
+            <div key={l}>
+              <div style={{ fontSize: "0.58rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{l}</div>
+              <div style={{ fontFamily: "var(--serif)", fontSize: "0.95rem", color: c }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: "0.6rem", color: "var(--muted2)", marginTop: "0.5rem" }}>
+          Cost index: NYC = 100. Cards show whether <em>current portfolio</em> is enough for Fat FIRE now.
+        </div>
+      </div>
+
+      {/* AI Search */}
+      <div className="card" style={{ borderColor: geminiKey ? "rgba(126,184,164,0.3)" : "var(--border)" }}>
+        <div className="sl">AI City Search{!geminiKey && <span style={{ color: "#E07B6A", marginLeft: "0.5rem", fontStyle: "normal" }}>— add Gemini key in ⚙ Settings</span>}</div>
+        <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.65rem", lineHeight: 1.5 }}>
+          Ask about any city, country, or region — Claude Gemini will estimate whether your portfolio is enough for Fat FIRE there.
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && canSearch && !searching && runSearch()}
+            placeholder={geminiKey ? "e.g. Tokyo, Southeast Asia, Portugal…" : "Add a Gemini API key in ⚙ Settings to enable"}
+            disabled={!geminiKey}
+            style={{
+              flex: 1, background: "var(--input-bg)", border: "1px solid var(--border)",
+              borderRadius: 4, padding: "0.45rem 0.65rem", color: geminiKey ? "var(--text)" : "var(--muted2)",
+              fontFamily: "var(--mono)", fontSize: "0.8rem", outline: "none",
+            }}
+          />
+          <button
+            onClick={runSearch}
+            disabled={!canSearch || searching}
+            style={{
+              background: canSearch && !searching ? "rgba(126,184,164,0.15)" : "var(--surface2)",
+              border: `1px solid ${canSearch && !searching ? "#7EB8A4" : "var(--border)"}`,
+              borderRadius: 4, padding: "0.45rem 0.9rem", cursor: canSearch && !searching ? "pointer" : "default",
+              color: canSearch && !searching ? "#7EB8A4" : "var(--muted2)",
+              fontFamily: "var(--mono)", fontSize: "0.72rem", letterSpacing: "0.08em", textTransform: "uppercase",
+              transition: "all 0.15s", whiteSpace: "nowrap",
+            }}
+          >
+            {searching ? "…" : "Search"}
+          </button>
+        </div>
+        {searchErr && (
+          <div style={{ marginTop: "0.5rem", fontSize: "0.65rem", color: "#E07B6A", background: "rgba(224,123,106,0.07)", borderRadius: 3, padding: "0.4rem 0.5rem" }}>
+            Error: {searchErr}
+          </div>
+        )}
+      </div>
+
+      {/* AI Results */}
+      {searching && (
+        <div className="card" style={{ textAlign: "center", padding: "1.5rem", color: "var(--muted)", fontSize: "0.75rem" }}>
+          <div style={{ fontFamily: "var(--serif)", marginBottom: "0.4rem", fontSize: "1rem", color: "var(--text)" }}>Researching…</div>
+          Analysing cost of living, visa options, and Fat FIRE feasibility
+        </div>
+      )}
+      {results && results.map((r, i) => (
+        <div key={i} className="card" style={{ borderLeft: `3px solid ${verdictColor(r.verdict)}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.6rem" }}>
+            <div>
+              <div style={{ fontFamily: "var(--serif)", fontSize: "1rem" }}>{r.city}</div>
+              <div style={{ fontSize: "0.62rem", color: "var(--muted)" }}>{r.country}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: "var(--serif)", fontSize: "0.85rem", color: verdictColor(r.verdict), marginBottom: "0.1rem" }}>{r.verdict}</div>
+              <div style={{ fontFamily: "var(--serif)", fontSize: "0.95rem" }}>{fmt(r.portfolioNeeded)}</div>
+              <div style={{ fontSize: "0.58rem", color: "var(--muted2)" }}>needed</div>
+            </div>
+          </div>
+
+          {/* Portfolio status bar */}
+          <div style={{ marginBottom: "0.6rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.62rem", marginBottom: "0.25rem" }}>
+              <span style={{ color: "var(--muted)" }}>Portfolio coverage</span>
+              <span style={{ color: verdictColor(r.verdict), fontFamily: "var(--serif)" }}>
+                {r.portfolioNeeded > 0 ? Math.min(Math.round((savings / r.portfolioNeeded) * 100), 100) : 100}%
+              </span>
+            </div>
+            <div className="bar" style={{ height: 5 }}>
+              <div className="bar-fill" style={{
+                width: `${r.portfolioNeeded > 0 ? Math.min((savings / r.portfolioNeeded) * 100, 100) : 100}%`,
+                background: verdictColor(r.verdict),
+              }} />
+            </div>
+            {r.canRetireNow
+              ? <div style={{ fontSize: "0.6rem", color: "#7EB8A4", marginTop: "0.2rem" }}>
+                  Current portfolio is sufficient{r.surplusYrs > 0 ? ` · ~${r.surplusYrs} yrs ahead of schedule vs. home Fat FIRE` : ""}
+                </div>
+              : <div style={{ fontSize: "0.6rem", color: "#E07B6A", marginTop: "0.2rem" }}>
+                  {fmt(r.shortfall)} more needed · {fmt(r.fatMonthly)}/mo Fat FIRE budget
+                </div>
+            }
+          </div>
+
+          <div className="g3" style={{ marginBottom: "0.6rem" }}>
+            {[
+              ["Cost Index", r.costIndex, r.costIndex < 45 ? "#7EB8A4" : r.costIndex < 55 ? "#C9A96E" : "var(--text)"],
+              ["Fat FIRE/mo", fmt(r.fatMonthly), "var(--text)"],
+              ["Fat FIRE/yr", fmt(r.fatAnnual), "var(--text)"],
+            ].map(([l,v,c]) => (
+              <div key={l} style={{ background: "var(--surface2)", borderRadius: 4, padding: "0.4rem", textAlign: "center" }}>
+                <div style={{ fontSize: "0.57rem", color: "var(--muted)", textTransform: "uppercase" }}>{l}</div>
+                <div style={{ fontFamily: "var(--serif)", fontSize: "0.85rem", color: c }}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ fontSize: "0.68rem", color: "var(--muted)", lineHeight: 1.5, marginBottom: "0.5rem" }}>{r.note}</div>
+
+          {(r.pros?.length > 0 || r.cons?.length > 0) && (
+            <div className="g2" style={{ gap: "0.5rem" }}>
+              {r.pros?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: "0.58rem", color: "#7EB8A4", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.25rem" }}>Pros</div>
+                  {r.pros.map((p, j) => <div key={j} style={{ fontSize: "0.63rem", color: "var(--muted)", lineHeight: 1.4, marginBottom: "0.15rem" }}>· {p}</div>)}
+                </div>
+              )}
+              {r.cons?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: "0.58rem", color: "#E07B6A", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.25rem" }}>Cons</div>
+                  {r.cons.map((c, j) => <div key={j} style={{ fontSize: "0.63rem", color: "var(--muted)", lineHeight: 1.4, marginBottom: "0.15rem" }}>· {c}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Divider */}
+      {!searching && !results && (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.25rem 0" }}>
+          <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+          <span style={{ fontSize: "0.6rem", color: "var(--muted2)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Curated list</span>
+          <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+        </div>
+      )}
+
+      {/* Filters for curated list */}
+      {!results && (
+        <>
+          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: "0.6rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Region:</span>
+            {REGIONS.map(r => (
+              <button key={r} className="pill" onClick={() => setCityRegion(r)}
+                style={cityRegion === r ? { borderColor: "var(--gold)", color: "var(--gold)", background: "rgba(201,169,110,0.08)" } : {}}>{r}</button>
+            ))}
+            <div style={{ marginLeft: "auto", display: "flex", gap: "0.35rem" }}>
+              {[["cost","By Cost"],["alpha","A–Z"],["ready","Ready Now"]].map(([s,l]) => (
+                <button key={s} className="pill" onClick={() => setCitySort(s)}
+                  style={citySort === s ? { borderColor: "var(--muted)", color: "var(--text)" } : {}}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {filteredCities.map(city => {
+            const localAnnual    = fatAnnualHere * (city.costIndex / 100);
+            const localTarget    = localAnnual / (swr / 100);
+            const canNow         = savings >= localTarget;
+            const portfolioPct   = Math.min((savings / localTarget) * 100, 100);
+            const shortfall      = Math.max(localTarget - savings, 0);
+            const surplus        = Math.max(savings - localTarget, 0);
+            const earlierYrs     = canNow ? Math.max(0, Math.round(yrsTo(fatTargetHere) - yrsTo(localTarget))) : 0;
+            return (
+              <div key={city.city} className="card" style={{ borderLeft: `3px solid ${canNow ? "#7EB8A4" : shortfall < fatTargetHere * 0.2 ? "#C9A96E" : "var(--border)"}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.45rem" }}>
+                  <div>
+                    <div style={{ fontFamily: "var(--serif)", fontSize: "1rem" }}>{city.city}</div>
+                    <div style={{ fontSize: "0.62rem", color: "var(--muted)" }}>{city.country} · {city.region}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "0.7rem", fontWeight: 500, color: canNow ? "#7EB8A4" : "#E07B6A", marginBottom: "0.1rem", fontFamily: "var(--mono)" }}>
+                      {canNow ? "Ready now ✓" : "Not yet"}
+                    </div>
+                    <div style={{ fontFamily: "var(--serif)", fontSize: "0.95rem" }}>{fmt(localTarget)}</div>
+                    <div style={{ fontSize: "0.58rem", color: "var(--muted2)" }}>needed</div>
+                  </div>
+                </div>
+
+                {/* Portfolio coverage bar */}
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.6rem", marginBottom: "0.2rem" }}>
+                    <span style={{ color: "var(--muted)" }}>{fmt(savings)} of {fmt(localTarget)}</span>
+                    <span style={{ color: canNow ? "#7EB8A4" : "var(--gold)", fontFamily: "var(--serif)" }}>{portfolioPct.toFixed(0)}%</span>
+                  </div>
+                  <div className="bar" style={{ height: 5 }}>
+                    <div className="bar-fill" style={{ width: `${portfolioPct}%`, background: canNow ? "#7EB8A4" : portfolioPct > 75 ? "#C9A96E" : "#E07B6A" }} />
+                  </div>
+                </div>
+
+                <div className="g3" style={{ marginBottom: "0.45rem" }}>
+                  {[
+                    ["Cost Index", city.costIndex, city.costIndex < 45 ? "#7EB8A4" : city.costIndex < 55 ? "#C9A96E" : "var(--text)"],
+                    ["Fat FIRE/mo", fmt(localAnnual/12), "var(--text)"],
+                    [canNow ? "Surplus" : "Shortfall", canNow ? `+${fmt(surplus)}` : `-${fmt(shortfall)}`, canNow ? "#7EB8A4" : "#E07B6A"],
+                  ].map(([l,v,c]) => (
+                    <div key={l} style={{ background: "var(--surface2)", borderRadius: 4, padding: "0.35rem", textAlign: "center" }}>
+                      <div style={{ fontSize: "0.57rem", color: "var(--muted)", textTransform: "uppercase" }}>{l}</div>
+                      <div style={{ fontFamily: "var(--serif)", fontSize: "0.85rem", color: c }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: "0.63rem", color: "var(--muted)", lineHeight: 1.5 }}>{city.note}</div>
+
+                {canNow && earlierYrs > 0 && (
+                  <div style={{ marginTop: "0.4rem", padding: "0.28rem 0.5rem", background: "rgba(126,184,164,0.07)", border: "1px solid rgba(126,184,164,0.15)", borderRadius: 3, fontSize: "0.61rem", color: "#7EB8A4" }}>
+                    ~{earlierYrs} yrs ahead of your home Fat FIRE date
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {results && (
+        <button onClick={() => setResults(null)} className="pill" style={{ alignSelf: "flex-start", color: "var(--muted)" }}>
+          ← Back to curated list
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Settings panel ──
+function SettingsPanel({ geminiKey, setGeminiKey }) {
+  const [draft, setDraft] = useState(geminiKey);
+  const [show, setShow]   = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const save = () => {
+    setGeminiKey(draft.trim());
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      <div className="card">
+        <div className="sl">API Keys</div>
+        <div style={{ fontSize: "0.7rem", color: "var(--muted)", lineHeight: 1.6, marginBottom: "0.75rem" }}>
+          Your API key is stored only in this browser tab's memory and never sent anywhere except directly to Google's Gemini API. It is not persisted after you close the tab.
+        </div>
+
+        <label style={{ fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: "0.4rem" }}>
+          Google Gemini API Key
+        </label>
+        <div style={{ fontSize: "0.62rem", color: "var(--muted2)", marginBottom: "0.4rem" }}>
+          Used for AI city search on the Cities tab. Get a free key at{" "}
+          <span style={{ color: "var(--gold)" }}>aistudio.google.com</span>
+          {" "}→ "Get API key". Gemini Flash 2.5 has a generous free tier.
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", background: "var(--input-bg)", border: `1px solid ${geminiKey ? "rgba(126,184,164,0.4)" : "var(--border)"}`, borderRadius: 4, padding: "0.4rem 0.65rem" }}>
+            <input
+              type={show ? "text" : "password"}
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              placeholder="AIza…"
+              style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text)", fontFamily: "var(--mono)", fontSize: "0.82rem" }}
+            />
+            <button onClick={() => setShow(s => !s)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "0.72rem", padding: "0 0.25rem" }}>
+              {show ? "hide" : "show"}
+            </button>
+          </div>
+          <button onClick={save}
+            style={{ background: saved ? "rgba(126,184,164,0.15)" : "rgba(201,169,110,0.12)", border: `1px solid ${saved ? "#7EB8A4" : "var(--gold)"}`, borderRadius: 4, padding: "0.4rem 0.9rem", cursor: "pointer", color: saved ? "#7EB8A4" : "var(--gold)", fontFamily: "var(--mono)", fontSize: "0.72rem", letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s" }}>
+            {saved ? "Saved ✓" : "Save"}
+          </button>
+        </div>
+        {geminiKey && (
+          <div style={{ fontSize: "0.62rem", color: "#7EB8A4" }}>
+            ✓ Key set — AI city search is active on the Cities tab
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="sl">About</div>
+        <div style={{ fontSize: "0.68rem", color: "var(--muted)", lineHeight: 1.7 }}>
+          <div style={{ marginBottom: "0.4rem" }}>FIRE Calculator — built for Fat FIRE planning with healthcare cost modelling, global city comparison, and AI-powered location research.</div>
+          <div style={{ color: "var(--muted2)" }}>Healthcare projections use KFF and Fidelity Retiree Health Cost Estimate data. City cost indices are approximate and based on Numbeo/EIU data. All figures are estimates — consult a financial advisor for personalised advice.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [tab, setTab]           = useState("Inputs");
+  const [age, setAge]           = useState(32);
+  const [savings, setSavings]   = useState(280000);
+  const [income, setIncome]     = useState(180000);
+  const [sr, setSr]             = useState(35);
+  const [partner, setPartner]   = useState(0);
+  const [psr, setPsr]           = useState(0);
+  const [ret, setRet]           = useState(7);
+  const [inf, setInf]           = useState(3);
+  const [swr, setSwr]           = useState(4);
+  const [tax, setTax]           = useState(25);
+  const [activeV, setActiveV]   = useState("regular");
+  const [cityRegion, setCityRegion] = useState("All");
+  const [citySort, setCitySort] = useState("cost");
+  const [geminiKey, setGeminiKey] = useState("");
+
+  const [monthly, setMonthly] = useState({
+    housing: 3000, food: 1200, transport: 600, utilities: 300,
+    entertainment: 400, clothing: 200, other: 500,
+  });
+  const [healthMonthly, setHealthMonthly] = useState(500); // separate, prominent
+  const [annual, setAnnual] = useState({ travel: 8000, gifts: 2000, misc: 3000 });
+
+  // Non-health annual spend
+  const nonHealthAnnual = useMemo(() => {
+    const mo = Object.values(monthly).reduce((a, b) => a + b, 0) * 12;
+    const yr = Object.values(annual).reduce((a, b) => a + b, 0);
+    return mo + yr;
+  }, [monthly, annual]);
+
+  const currentHealthAnnual = healthMonthly * 12;
+  const totalAnnual = nonHealthAnnual + currentHealthAnnual;
+
+  const realRet = (ret - inf) / 100;
+  const nomRet  = ret / 100;
+
+  const contrib = useMemo(() => {
+    const mine   = income  * (sr  / 100) * (1 - tax / 100);
+    const theirs = partner * (psr / 100) * (1 - tax / 100);
+    return mine + theirs;
+  }, [income, sr, partner, psr, tax]);
+
+  // ── FIRE age: years until regular FIRE target hit (used for healthcare phase calc) ──
+  // We need this iteratively
+  const fireTargetsBase = useMemo(() => ({
+    lean:    (totalAnnual * VARIANTS.lean.spendMult)    / (swr / 100),
+    regular:  totalAnnual                               / (swr / 100),
+    fat:     (totalAnnual * VARIANTS.fat.spendMult)     / (swr / 100),
+  }), [totalAnnual, swr]);
+
+  const yrsTo = useCallback((target) => {
+    if (target <= 0) return 0;
+    let pv = savings;
+    for (let y = 0; y <= 60; y++) {
+      if (pv >= target) return y;
+      pv = pv * (1 + realRet) + contrib;
+    }
+    return 61;
+  }, [savings, contrib, realRet]);
+
+  const projectedFireAge = age + Math.min(yrsTo(fireTargetsBase.regular), 60);
+
+  // ── Healthcare projection: year-by-year health costs from now to age 90 ──
+  const hcProjection = useMemo(() => {
+    const d = [];
+    for (let a = age; a <= 90; a++) {
+      const projected  = hcAtAge(a, projectedFireAge, healthMonthly, null);
+      const flatInfl   = currentHealthAnnual * Math.pow(1 + inf / 100, a - age); // what it'd be with just general inflation
+      const phase      = a < projectedFireAge ? "working" : a < 65 ? "aca" : a < 75 ? "medicare" : "ltc";
+      const phaseLabel = a < projectedFireAge ? "Working" : a < 65 ? "ACA" : a < 75 ? "Medicare" : "LTC";
+      d.push({ age: a, projected: Math.round(projected), flatInfl: Math.round(flatInfl), phase, phaseLabel,
+               extra: Math.round(Math.max(projected - flatInfl, 0)) });
+    }
+    return d;
+  }, [age, projectedFireAge, healthMonthly, currentHealthAnnual, inf]);
+
+  // ── Healthcare-adjusted FIRE target ──
+  // The "extra" healthcare burden beyond flat inflation creates a higher effective spend in retirement.
+  // We capitalise the NPV of extra healthcare costs over a 30-year retirement window into the FIRE target.
+  const hcAdjustment = useMemo(() => {
+    // Sum the PV of extra health costs for each year of retirement (fireAge to fireAge+30)
+    let npv = 0;
+    for (let y = 0; y <= 30; y++) {
+      const a = projectedFireAge + y;
+      const extra = Math.max(hcAtAge(a, projectedFireAge, healthMonthly, null) - currentHealthAnnual, 0);
+      npv += extra / Math.pow(1 + nomRet, y);
+    }
+    return npv;
+  }, [projectedFireAge, healthMonthly, currentHealthAnnual, nomRet]);
+
+  // Adjusted targets: base target + capitalised healthcare NPV
+  const fireTargets = useMemo(() => ({
+    lean:    fireTargetsBase.lean    + hcAdjustment * VARIANTS.lean.spendMult,
+    regular: fireTargetsBase.regular + hcAdjustment,
+    fat:     fireTargetsBase.fat     + hcAdjustment * VARIANTS.fat.spendMult,
+  }), [fireTargetsBase, hcAdjustment]);
+
+  const { coastMilestone, coastHorizonAge } = useMemo(() => {
+    if (savings >= fireTargets.regular) return { coastMilestone: savings, coastHorizonAge: age };
+    let nc = savings;
+    for (let y = 1; y <= 60; y++) {
+      nc = nc * (1 + nomRet);
+      if (nc >= fireTargets.regular) {
+        return { coastMilestone: fireTargets.regular / Math.pow(1 + nomRet, y), coastHorizonAge: age + y };
+      }
+    }
+    return { coastMilestone: fireTargets.regular, coastHorizonAge: age + 60 };
+  }, [fireTargets.regular, savings, nomRet, age]);
+
+  const coastYrs = useMemo(() => {
+    let pv = savings;
+    for (let y = 0; y <= 60; y++) {
+      if (pv >= coastMilestone) return y;
+      pv = pv * (1 + realRet) + contrib;
+    }
+    return 61;
+  }, [savings, coastMilestone, contrib, realRet]);
+
+  const results = useMemo(() => ({
+    lean:    { years: yrsTo(fireTargets.lean),    target: fireTargets.lean,    annualSpend: totalAnnual * VARIANTS.lean.spendMult },
+    regular: { years: yrsTo(fireTargets.regular), target: fireTargets.regular, annualSpend: totalAnnual },
+    fat:     { years: yrsTo(fireTargets.fat),     target: fireTargets.fat,     annualSpend: totalAnnual * VARIANTS.fat.spendMult },
+  }), [yrsTo, fireTargets, totalAnnual]);
+
+  const projData = useMemo(() => {
+    const d = [];
+    let pv = savings;
+    for (let y = 0; y <= 40; y++) {
+      d.push({ age: age + y, portfolio: Math.round(pv), lean: Math.round(fireTargets.lean), regular: Math.round(fireTargets.regular), fat: Math.round(fireTargets.fat) });
+      pv = pv * (1 + realRet) + contrib;
+    }
+    return d;
+  }, [savings, contrib, realRet, fireTargets, age]);
+
+  const scenarios = useMemo(() => [
+    { label: "Conservative",    sr,         ret: ret - 2, inf: inf + 1,   color: "#7EB8A4" },
+    { label: "Base Case",       sr,         ret,          inf,            color: "#C9A96E" },
+    { label: "Optimistic",      sr: sr + 5, ret: ret + 1, inf: inf - 0.5, color: "#E07B6A" },
+    { label: "Aggressive Save", sr: Math.min(sr + 15, 70), ret, inf,     color: "#9B8EC4" },
+  ].map(s => {
+    const rr = (s.ret - s.inf) / 100;
+    const c  = income * (s.sr / 100) * (1 - tax / 100);
+    let pv = savings;
+    for (let y = 0; y <= 60; y++) {
+      if (pv >= fireTargets.regular) return { ...s, years: y, fireAge: age + y };
+      pv = pv * (1 + rr) + c;
+    }
+    return { ...s, years: 61, fireAge: age + 61 };
+  }), [sr, ret, inf, income, tax, fireTargets.regular, savings, age]);
+
+  const coastData = useMemo(() => {
+    const d = [];
+    let wc = savings, nc = savings;
+    const n = Math.max(coastHorizonAge - age + 5, 20);
+    for (let y = 0; y <= n; y++) {
+      d.push({ age: age + y, withContrib: Math.round(wc), noContrib: Math.round(nc), target: Math.round(fireTargets.regular) });
+      wc = wc * (1 + nomRet) + contrib;
+      nc = nc * (1 + nomRet);
+    }
+    return d;
+  }, [savings, contrib, nomRet, fireTargets.regular, age, coastHorizonAge]);
+
+  const filteredCities = useMemo(() => {
+    let list = cityRegion === "All" ? FAT_CITIES : FAT_CITIES.filter(c => c.region === cityRegion);
+    if (citySort === "cost")  return [...list].sort((a, b) => a.costIndex - b.costIndex);
+    if (citySort === "alpha") return [...list].sort((a, b) => a.city.localeCompare(b.city));
+    if (citySort === "ready") {
+      // Sort: can retire now first (by costIndex), then the rest (by shortfall ascending)
+      const fatAnnual = totalAnnual * VARIANTS.fat.spendMult;
+      return [...list].sort((a, b) => {
+        const tgtA = (fatAnnual * a.costIndex / 100) / (swr / 100);
+        const tgtB = (fatAnnual * b.costIndex / 100) / (swr / 100);
+        const readyA = savings >= tgtA, readyB = savings >= tgtB;
+        if (readyA && !readyB) return -1;
+        if (!readyA && readyB) return 1;
+        return tgtA - tgtB;
+      });
+    }
+    return list;
+  }, [cityRegion, citySort, savings, totalAnnual, swr]);
+
+  const fatAnnualHere = totalAnnual * VARIANTS.fat.spendMult;
+  const fatTargetHere = fireTargets.fat;
+
+  const Tip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={{ background: "#161714", border: "1px solid #2C2D29", borderRadius: 6, padding: "0.6rem 0.8rem", fontSize: "0.72rem" }}>
+        <div style={{ color: "#7A7B74", marginBottom: "0.3rem" }}>Age {label}</div>
+        {payload.map(p => <div key={p.dataKey} style={{ color: p.color }}>{p.name}: {fmt(p.value)}</div>)}
+      </div>
+    );
+  };
+
+  const HcTip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    const d = hcProjection.find(r => r.age === label);
+    return (
+      <div style={{ background: "#161714", border: "1px solid #2C2D29", borderRadius: 6, padding: "0.6rem 0.8rem", fontSize: "0.72rem" }}>
+        <div style={{ color: "#7A7B74", marginBottom: "0.3rem" }}>Age {label} — {d?.phaseLabel}</div>
+        {payload.map(p => <div key={p.dataKey} style={{ color: p.color }}>{p.name}: {fmt(p.value)}</div>)}
+        {d?.extra > 0 && <div style={{ color: "#E07B6A", marginTop: "0.2rem" }}>+{fmt(d.extra)} above flat inflation</div>}
+      </div>
+    );
+  };
+
+  // Phase band backgrounds for HC chart
+  const phaseColors = { working: "#2C2D29", aca: "rgba(201,169,110,0.07)", medicare: "rgba(126,184,164,0.07)", ltc: "rgba(224,123,106,0.12)" };
+
+  return (
+    <div style={{
+      "--bg": "#0E0F0D", "--surface": "#161714", "--surface2": "#1E1F1C",
+      "--border": "#2C2D29", "--text": "#E8E4D9", "--muted": "#7A7B74",
+      "--muted2": "#52534E", "--gold": "#C9A96E", "--green": "#7EB8A4",
+      "--input-bg": "#1A1B18",
+      "--serif": "'Playfair Display', Georgia, serif",
+      "--mono": "'DM Mono', 'Courier New', monospace",
+      background: "var(--bg)", color: "var(--text)", fontFamily: "var(--mono)",
+      minHeight: "100vh", fontSize: "0.82rem", lineHeight: 1.5, overflowX: "hidden",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=DM+Mono:wght@300;400&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 2px; background: #2C2D29; border-radius: 2px; outline: none; cursor: pointer; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 3px rgba(201,169,110,0.15); }
+        input[type=number] { -moz-appearance: textfield; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+        ::-webkit-scrollbar { width: 3px; } ::-webkit-scrollbar-thumb { background: #2C2D29; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+        .tab { background: none; border: none; border-bottom: 1.5px solid transparent; cursor: pointer; font-family: var(--mono); font-size: 0.61rem; letter-spacing: 0.09em; text-transform: uppercase; padding: 0.5rem 0.65rem; color: var(--muted); transition: color 0.15s; white-space: nowrap; }
+        .tab:hover { color: var(--text); }
+        .tab.on { color: var(--gold); border-bottom-color: var(--gold); }
+        .pill { background: none; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-family: var(--mono); font-size: 0.61rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.25rem 0.55rem; color: var(--muted); transition: all 0.15s; }
+        .pill:hover { color: var(--text); }
+        .bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+        @keyframes fu { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        .fu { animation: fu 0.25s ease forwards; }
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+        .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
+        .sl { font-size: 0.62rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.8rem; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { padding: 0.3rem 0.4rem; }
+        th { font-weight: 400; }
+        tr + tr td { border-top: 1px solid var(--border); }
+      `}</style>
+
+      {/* ── HEADER ── */}
+      <div style={{ borderBottom: "1px solid var(--border)", padding: "0.9rem 1rem 0" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "0.6rem", marginBottom: "0.45rem", flexWrap: "wrap" }}>
+          <h1 style={{ fontFamily: "var(--serif)", fontSize: "1.3rem", fontWeight: 400 }}>FIRE Calculator</h1>
+          <span style={{ fontSize: "0.58rem", color: "var(--muted)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Financial Independence · Retire Early</span>
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem 1rem", marginBottom: "0.55rem", flexWrap: "wrap" }}>
+          {Object.entries(VARIANTS).map(([k, v]) => (
+            <div key={k} style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: v.color, flexShrink: 0 }} />
+              <span style={{ fontSize: "0.58rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{v.label}</span>
+              <span style={{ fontSize: "0.76rem", fontFamily: "var(--serif)", color: v.color }}>
+                {results[k].years >= 60 ? "60+" : `Age ${age + Math.round(results[k].years)}`}
+              </span>
+            </div>
+          ))}
+          {hcAdjustment > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", borderLeft: "1px solid var(--border)", paddingLeft: "0.75rem" }}>
+              <span style={{ fontSize: "0.58rem", color: "#E07B6A", letterSpacing: "0.06em" }}>+{fmt(hcAdjustment)} HC adj.</span>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", overflowX: "auto" }}>
+          {TABS.map(t => <button key={t} className={`tab ${tab === t ? "on" : ""}`} onClick={() => setTab(t)}>{t}</button>)}
+        </div>
+      </div>
+
+      <div style={{ padding: "1rem", overflowY: "auto" }}>
+
+        {/* ══ INPUTS ══ */}
+        {tab === "Inputs" && (
+          <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div className="card">
+              <div className="sl">Profile</div>
+              <div className="g2">
+                <div>
+                  <Slider label="Current Age" value={age} onChange={setAge} min={20} max={60} step={1} format={v => `${v}`} />
+                  <NumInput label="Current Portfolio" value={savings} onChange={setSavings} sub="401k, IRA, brokerage combined" />
+                  <NumInput label="Annual Gross Income" value={income} onChange={setIncome} />
+                </div>
+                <div>
+                  <Slider label="Savings Rate" value={sr} onChange={setSr} min={5} max={70} step={1}
+                    format={v => `${v}%`} sub={`≈ ${fmt(income * sr / 100 * (1 - tax / 100))} after-tax/yr`} />
+                  <NumInput label="Partner Income (optional)" value={partner} onChange={setPartner} />
+                  {partner > 0 && <Slider label="Partner Savings Rate" value={psr} onChange={setPsr} min={0} max={70} step={1} format={v => `${v}%`} />}
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div className="sl">Returns & Rates</div>
+              <div className="g2">
+                <div>
+                  <Slider label="Return (nominal)" value={ret} onChange={setRet} min={3} max={12} step={0.5} format={v => `${v}%`} sub="S&P 500 long-run avg ~10%" />
+                  <Slider label="Inflation" value={inf} onChange={setInf} min={1} max={6} step={0.25} format={v => `${v}%`} />
+                  <div style={{ background: "var(--surface2)", borderRadius: 4, padding: "0.45rem 0.6rem", marginBottom: "0.5rem", display: "flex", justifyContent: "space-between", fontSize: "0.7rem" }}>
+                    <span style={{ color: "var(--muted)" }}>Real Return</span>
+                    <span style={{ color: "var(--green)", fontFamily: "var(--serif)" }}>{(ret - inf).toFixed(2)}%</span>
+                  </div>
+                </div>
+                <div>
+                  <Slider label="Safe Withdrawal Rate" value={swr} onChange={setSwr} min={3} max={5} step={0.1} format={v => `${v}%`} sub="4% = Trinity Study" />
+                  <Slider label="Effective Tax Rate" value={tax} onChange={setTax} min={0} max={45} step={1} format={v => `${v}%`} />
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div className="sl">FIRE Targets (healthcare-adjusted)</div>
+              {hcAdjustment > 0 && (
+                <div style={{ background: "rgba(224,123,106,0.07)", border: "1px solid rgba(224,123,106,0.2)", borderRadius: 4, padding: "0.5rem 0.65rem", marginBottom: "0.75rem", fontSize: "0.68rem" }}>
+                  <span style={{ color: "#E07B6A" }}>+{fmt(hcAdjustment)}</span>
+                  <span style={{ color: "var(--muted)" }}> added to each target as NPV of projected excess healthcare costs over 30-yr retirement. </span>
+                  <span style={{ color: "var(--muted2)" }}>See Healthcare tab for detail.</span>
+                </div>
+              )}
+              {Object.entries(VARIANTS).map(([k, v]) => {
+                const r = results[k];
+                return (
+                  <div key={k} style={{ marginBottom: "0.7rem", paddingBottom: "0.7rem", borderBottom: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.2rem" }}>
+                      <span style={{ fontSize: "0.7rem", color: v.color, textTransform: "uppercase", letterSpacing: "0.08em" }}>{v.label}</span>
+                      <span style={{ fontFamily: "var(--serif)", fontSize: "1rem" }}>{fmt(r.target)}</span>
+                    </div>
+                    <div style={{ fontSize: "0.6rem", color: "var(--muted2)", marginBottom: "0.25rem" }}>
+                      {fmt(r.annualSpend)}/yr spend · {swr}% SWR
+                    </div>
+                    <div className="bar"><div className="bar-fill" style={{ width: `${pct(savings, r.target)}%`, background: v.color }} /></div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ══ SPENDING ══ */}
+        {tab === "Spending" && (
+          <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.8rem" }}>
+                <div className="sl" style={{ marginBottom: 0 }}>Monthly Expenses</div>
+                <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>{fmt(Object.values(monthly).reduce((a,b)=>a+b,0)*12)}/yr</span>
+              </div>
+              {MONTHLY_CATS.map(c => (
+                <SpendRow key={c.key} label={c.label} hint={c.hint} isMonthly value={monthly[c.key]??0}
+                  onChange={v => setMonthly(m => ({...m, [c.key]: v}))} />
+              ))}
+              {/* Health as its own row, prominent */}
+              <div style={{ borderTop: "1px solid rgba(224,123,106,0.25)", paddingTop: "0.5rem", marginTop: "0.25rem" }}>
+                <SpendRow label="Health Insurance" hint="premiums + out-of-pocket — projected by phase in Healthcare tab" isMonthly
+                  value={healthMonthly} onChange={setHealthMonthly} />
+                <div style={{ fontSize: "0.6rem", color: "#E07B6A", marginTop: "-0.25rem", marginBottom: "0.5rem", paddingLeft: "0.1rem" }}>
+                  This amount is phase-projected: ACA pre-65 → Medicare 65–74 → Medicare + LTC 75+
+                </div>
+              </div>
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.5rem", marginTop: "0.3rem", display: "flex", justifyContent: "space-between", fontSize: "0.7rem" }}>
+                <span style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Monthly total</span>
+                <span style={{ fontFamily: "var(--serif)", color: "var(--gold)" }}>{fmt((Object.values(monthly).reduce((a,b)=>a+b,0) + healthMonthly))}/mo</span>
+              </div>
+            </div>
+            <div className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.8rem" }}>
+                <div className="sl" style={{ marginBottom: 0 }}>Annual Expenses</div>
+                <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>one-time or irregular</span>
+              </div>
+              {ANNUAL_CATS.map(c => (
+                <SpendRow key={c.key} label={c.label} hint={c.hint} isMonthly={false} value={annual[c.key]??0}
+                  onChange={v => setAnnual(a => ({...a, [c.key]: v}))} />
+              ))}
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.5rem", marginTop: "0.3rem", display: "flex", justifyContent: "space-between", fontSize: "0.7rem" }}>
+                <span style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Annual extras</span>
+                <span style={{ fontFamily: "var(--serif)", color: "var(--gold)" }}>{fmt(Object.values(annual).reduce((a,b)=>a+b,0))}/yr</span>
+              </div>
+            </div>
+            <div className="card" style={{ borderColor: "rgba(201,169,110,0.3)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+                <span style={{ fontSize: "0.65rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Total Annual Spend</span>
+                <span style={{ fontFamily: "var(--serif)", fontSize: "1.4rem", color: "var(--gold)" }}>{fmt(totalAnnual)}</span>
+              </div>
+              <div style={{ fontSize: "0.62rem", color: "var(--muted2)" }}>{fmt(totalAnnual/12)}/mo avg · feeds all FIRE targets · healthcare projected separately</div>
+            </div>
+            <div className="card">
+              <div className="sl">Budget by FIRE Target</div>
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", color: "var(--muted)", fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Category</th>
+                      <th style={{ textAlign: "right", color: "var(--muted)", fontSize: "0.6rem" }}>Your Budget</th>
+                      {["lean","regular","fat"].map(k => (
+                        <th key={k} style={{ textAlign: "right", color: VARIANTS[k].color, fontSize: "0.6rem", textTransform: "uppercase" }}>{VARIANTS[k].label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MONTHLY_CATS.map(c => {
+                      const v = (monthly[c.key]??0) * 12;
+                      return (
+                        <tr key={c.key}>
+                          <td style={{ color: "var(--muted)", fontSize: "0.65rem" }}>{c.label}</td>
+                          <td style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem" }}>{fmt(v)}</td>
+                          {[0.6,1.0,1.6].map((m,i) => <td key={i} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem", color: ["var(--green)","var(--gold)","#E07B6A"][i] }}>{fmt(v*m)}</td>)}
+                        </tr>
+                      );
+                    })}
+                    <tr>
+                      <td style={{ color: "#E07B6A", fontSize: "0.65rem" }}>Health (today)</td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem" }}>{fmt(currentHealthAnnual)}</td>
+                      {[0.6,1.0,1.6].map((m,i) => <td key={i} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem", color: "#E07B6A", fontStyle: "italic" }}>phase-adj.</td>)}
+                    </tr>
+                    {ANNUAL_CATS.map(c => {
+                      const v = annual[c.key]??0;
+                      return (
+                        <tr key={c.key}>
+                          <td style={{ color: "var(--muted)", fontSize: "0.65rem" }}>{c.label}</td>
+                          <td style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem" }}>{fmt(v)}</td>
+                          {[0.6,1.0,1.6].map((m,i) => <td key={i} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem", color: ["var(--green)","var(--gold)","#E07B6A"][i] }}>{fmt(v*m)}</td>)}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: "1px solid var(--muted2)" }}>
+                      <td style={{ color: "var(--muted)", fontSize: "0.65rem", textTransform: "uppercase", paddingTop: "0.45rem" }}>Total/yr</td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--serif)", paddingTop: "0.45rem" }}>{fmt(totalAnnual)}</td>
+                      {[["lean",fireTargetsBase.lean],["regular",fireTargetsBase.regular],["fat",fireTargetsBase.fat]].map(([k,t]) => (
+                        <td key={k} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.85rem", color: VARIANTS[k].color, paddingTop: "0.45rem" }}>{fmt(totalAnnual * VARIANTS[k].spendMult)}</td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td style={{ color: "var(--muted)", fontSize: "0.62rem", textTransform: "uppercase" }}>FIRE Target (HC-adj)</td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem" }}>{fmt(fireTargets.regular)}</td>
+                      {["lean","regular","fat"].map(k => (
+                        <td key={k} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem", color: VARIANTS[k].color }}>{fmt(fireTargets[k])}</td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PROJECTION ══ */}
+        {tab === "Projection" && (
+          <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+              {Object.entries(VARIANTS).map(([k, v]) => (
+                <button key={k} className="pill" onClick={() => setActiveV(k)}
+                  style={activeV === k ? { borderColor: v.color, color: v.color, background: `${v.color}12` } : {}}>{v.label}</button>
+              ))}
+            </div>
+            <div className="g2">
+              {[
+                { label: "Target",         value: fmt(results[activeV]?.target), sub: `at ${swr}% SWR` },
+                { label: "Years Away",     value: fmtYrs(results[activeV]?.years), sub: `FIRE age ${age + Math.round(results[activeV]?.years ?? 0)}` },
+                { label: "Portfolio",      value: fmt(savings), sub: `${pct(savings, results[activeV]?.target)}% of target` },
+                { label: "Annual Contrib", value: fmt(contrib), sub: `${sr}% SR · ${fmt(totalAnnual)}/yr spend` },
+              ].map(s => (
+                <div key={s.label} className="card" style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "0.6rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>{s.label}</div>
+                  <div style={{ fontFamily: "var(--serif)", fontSize: "1.2rem", color: "var(--gold)", marginBottom: "0.15rem" }}>{s.value}</div>
+                  <div style={{ fontSize: "0.58rem", color: "var(--muted2)", lineHeight: 1.3 }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
+            <div className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.35rem", fontSize: "0.68rem" }}>
+                <span style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Progress to {VARIANTS[activeV].label}</span>
+                <span style={{ color: "var(--gold)", fontFamily: "var(--serif)" }}>{pct(savings, results[activeV]?.target)}%</span>
+              </div>
+              <div style={{ height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct(savings, results[activeV]?.target)}%`, background: `linear-gradient(90deg, ${VARIANTS[activeV]?.color}55, ${VARIANTS[activeV]?.color})`, borderRadius: 3, transition: "width 0.5s" }} />
+              </div>
+            </div>
+            <div className="card">
+              <div className="sl">Portfolio Growth vs. FIRE Targets (HC-adjusted)</div>
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={projData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#C9A96E" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#C9A96E" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2C2D29" />
+                  <XAxis dataKey="age" stroke="#52534E" tick={{ fontSize: 9, fill: "#7A7B74" }} />
+                  <YAxis stroke="#52534E" tick={{ fontSize: 9, fill: "#7A7B74" }} tickFormatter={fmt} width={52} />
+                  <Tooltip content={<Tip />} />
+                  <Area  type="monotone" dataKey="portfolio" name="Portfolio" stroke="#C9A96E" fill="url(#pg)" strokeWidth={2} dot={false} />
+                  <Line  type="monotone" dataKey="lean"    name="Lean FIRE"  stroke="#7EB8A4" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                  <Line  type="monotone" dataKey="regular" name="FIRE"       stroke="#C9A96E" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                  <Line  type="monotone" dataKey="fat"     name="Fat FIRE"   stroke="#E07B6A" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                  {results[activeV].years < 60 && (
+                    <ReferenceLine x={age + Math.round(results[activeV].years)} stroke={VARIANTS[activeV].color} strokeDasharray="5 3"
+                      label={{ value: "FIRE", fill: VARIANTS[activeV].color, fontSize: 9 }} />
+                  )}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* ══ HEALTHCARE ══ */}
+        {tab === "Healthcare" && (
+          <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+
+            {/* Phase explainer */}
+            <div className="card">
+              <div className="sl">Healthcare Cost Phases</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {HC_PHASES.map((p, i) => (
+                  <div key={p.key} style={{ background: "var(--surface2)", borderRadius: 5, padding: "0.6rem 0.75rem", borderLeft: `3px solid ${p.color}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.2rem" }}>
+                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "baseline" }}>
+                        <span style={{ fontSize: "0.7rem", color: p.color, textTransform: "uppercase", letterSpacing: "0.08em" }}>{p.label}</span>
+                        <span style={{ fontSize: "0.6rem", color: "var(--muted2)" }}>Ages {p.ageRange}</span>
+                      </div>
+                      <span style={{ fontFamily: "var(--serif)", color: p.color, fontSize: "0.9rem" }}>~{fmt(p.baseMonthly)}/mo base</span>
+                    </div>
+                    <div style={{ fontSize: "0.65rem", color: "var(--muted)", lineHeight: 1.4 }}>{p.note}</div>
+                    <div style={{ fontSize: "0.6rem", color: "var(--muted2)", marginTop: "0.2rem" }}>{(p.annualGrowth*100).toFixed(1)}%/yr healthcare inflation within phase</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Impact summary */}
+            <div className="card" style={{ borderColor: "rgba(224,123,106,0.3)" }}>
+              <div className="sl">Impact on Your FIRE Plan</div>
+              <div className="g2" style={{ marginBottom: "0.75rem" }}>
+                {[
+                  { label: "Today's HC Spend",    value: fmt(currentHealthAnnual),   sub: `${fmt(healthMonthly)}/mo · your input` },
+                  { label: "HC at ACA Phase",     value: fmt(hcAtAge(projectedFireAge, projectedFireAge, healthMonthly, null)), sub: `At FIRE age ${projectedFireAge}, pre-Medicare` },
+                  { label: "HC at Medicare",      value: fmt(hcAtAge(65, projectedFireAge, healthMonthly, null)), sub: "Age 65, Part B + Medigap" },
+                  { label: "HC at LTC Phase",     value: fmt(hcAtAge(75, projectedFireAge, healthMonthly, null)), sub: "Age 75, Medicare + LTC risk" },
+                ].map(s => (
+                  <div key={s.label} className="card" style={{ textAlign: "center", background: "var(--surface2)", border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: "0.59rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: "0.25rem" }}>{s.label}</div>
+                    <div style={{ fontFamily: "var(--serif)", fontSize: "1.1rem", color: "#E07B6A", marginBottom: "0.15rem" }}>{s.value}</div>
+                    <div style={{ fontSize: "0.58rem", color: "var(--muted2)" }}>{s.sub}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: "rgba(224,123,106,0.07)", border: "1px solid rgba(224,123,106,0.2)", borderRadius: 4, padding: "0.6rem 0.75rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.2rem" }}>
+                  <span style={{ fontSize: "0.68rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.09em" }}>Total HC Adjustment to FIRE Target</span>
+                  <span style={{ fontFamily: "var(--serif)", fontSize: "1.1rem", color: "#E07B6A" }}>+{fmt(hcAdjustment)}</span>
+                </div>
+                <div style={{ fontSize: "0.62rem", color: "var(--muted2)" }}>
+                  NPV of projected healthcare costs above flat inflation, capitalised over 30-yr retirement at {ret}% nominal return. Added to all FIRE targets.
+                </div>
+              </div>
+            </div>
+
+            {/* Projection chart */}
+            <div className="card">
+              <div className="sl">Annual Healthcare Cost: Age {age} → 90</div>
+              {/* Phase legend */}
+              <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                {[
+                  { label: "Working", color: "var(--muted2)" },
+                  ...HC_PHASES.map(p => ({ label: p.label, color: p.color })),
+                  { label: "Flat inflation baseline", color: "var(--border)", dashed: true },
+                ].map(l => (
+                  <div key={l.label} style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontSize: "0.6rem", color: "var(--muted)" }}>
+                    <div style={{ width: 10, height: 2, background: l.color, borderTop: l.dashed ? "2px dashed" : "none", opacity: l.dashed ? 0.6 : 1 }} />{l.label}
+                  </div>
+                ))}
+              </div>
+              <ResponsiveContainer width="100%" height={260}>
+                <ComposedChart data={hcProjection} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="hcGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#E07B6A" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#E07B6A" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2C2D29" />
+                  <XAxis dataKey="age" stroke="#52534E" tick={{ fontSize: 9, fill: "#7A7B74" }} />
+                  <YAxis stroke="#52534E" tick={{ fontSize: 9, fill: "#7A7B74" }} tickFormatter={fmt} width={52} />
+                  <Tooltip content={<HcTip />} />
+                  {/* Phase reference lines */}
+                  {projectedFireAge > age && projectedFireAge < 90 && (
+                    <ReferenceLine x={projectedFireAge} stroke="var(--muted2)" strokeDasharray="3 3"
+                      label={{ value: `FIRE ${projectedFireAge}`, fill: "#7A7B74", fontSize: 8, position: "top" }} />
+                  )}
+                  <ReferenceLine x={65} stroke="#7EB8A4" strokeDasharray="3 3"
+                    label={{ value: "Medicare 65", fill: "#7EB8A4", fontSize: 8, position: "top" }} />
+                  <ReferenceLine x={75} stroke="#E07B6A" strokeDasharray="3 3"
+                    label={{ value: "LTC 75", fill: "#E07B6A", fontSize: 8, position: "top" }} />
+                  <Area type="monotone" dataKey="projected" name="Projected HC cost" stroke="#E07B6A" fill="url(#hcGrad)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="flatInfl"  name="Flat inflation baseline" stroke="#52534E" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+              <div style={{ fontSize: "0.62rem", color: "var(--muted2)", marginTop: "0.5rem" }}>
+                Shaded area above dashed line = excess healthcare cost above general inflation. This excess is what's capitalised into your FIRE target adjustment.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ SCENARIOS ══ */}
+        {tab === "Scenarios" && (
+          <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>Paths to Regular FIRE: <span style={{ color: "var(--gold)", fontFamily: "var(--serif)" }}>{fmt(fireTargets.regular)}</span> (HC-adjusted)</div>
+            {scenarios.map(s => (
+              <div key={s.label} className="card">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.6rem" }}>
+                  <span style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", color: s.color }}>{s.label}</span>
+                  <span style={{ fontFamily: "var(--serif)", fontSize: "1.2rem" }}>{s.years >= 60 ? "60+ yrs" : `Age ${s.fireAge}`}</span>
+                </div>
+                <div className="g3" style={{ marginBottom: "0.55rem" }}>
+                  {[["Return",`${s.ret}%`],["Inflation",`${s.inf}%`],["Save Rate",`${s.sr}%`]].map(([l,v]) => (
+                    <div key={l} style={{ background: "var(--surface2)", borderRadius: 4, padding: "0.35rem", textAlign: "center" }}>
+                      <div style={{ fontSize: "0.57rem", color: "var(--muted)", textTransform: "uppercase" }}>{l}</div>
+                      <div style={{ fontFamily: "var(--serif)", fontSize: "0.85rem" }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: "0.63rem", color: "var(--muted)", marginBottom: "0.25rem" }}>{s.years >= 60 ? "60+ years away" : `${s.years} yrs away`}</div>
+                <div className="bar"><div className="bar-fill" style={{ width: `${pct(savings, fireTargets.regular)}%`, background: s.color }} /></div>
+              </div>
+            ))}
+            <div className="card">
+              <div className="sl">Savings Rate Sensitivity</div>
+              <div className="g3" style={{ gap: "0.4rem" }}>
+                {[20, 25, 30, 35, 40, 50].map(s => {
+                  const c = income * (s / 100) * (1 - tax / 100);
+                  let pv = savings, yrs = 61;
+                  for (let y = 0; y <= 60; y++) { if (pv >= fireTargets.regular) { yrs = y; break; } pv = pv * (1 + realRet) + c; }
+                  const cur = s === sr;
+                  return (
+                    <div key={s} style={{ background: cur ? "rgba(201,169,110,0.09)" : "var(--surface2)", border: cur ? "1px solid var(--gold)" : "1px solid transparent", borderRadius: 6, padding: "0.55rem", textAlign: "center" }}>
+                      <div style={{ fontSize: "0.59rem", color: cur ? "var(--gold)" : "var(--muted)", textTransform: "uppercase", marginBottom: "0.15rem" }}>SR {s}%</div>
+                      <div style={{ fontFamily: "var(--serif)", fontSize: "1rem", color: cur ? "var(--gold)" : "var(--text)" }}>
+                        {yrs >= 60 ? "60+" : yrs}<span style={{ fontSize: "0.58rem", color: "var(--muted2)", marginLeft: 2 }}>yrs</span>
+                      </div>
+                      <div style={{ fontSize: "0.57rem", color: "var(--muted2)" }}>age {yrs >= 60 ? "60+" : age + yrs}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ CITIES ══ */}
+        {tab === "Cities" && (
+          <CitiesTab
+            savings={savings} swr={swr} fatAnnualHere={fatAnnualHere}
+            fatTargetHere={fatTargetHere} yrsTo={yrsTo}
+            filteredCities={filteredCities} cityRegion={cityRegion}
+            setCityRegion={setCityRegion} citySort={citySort}
+            setCitySort={setCitySort} totalAnnual={totalAnnual}
+            age={age} income={income} sr={sr} geminiKey={geminiKey}
+          />
+        )}
+
+        {/* ══ SETTINGS ══ */}
+        {tab === "⚙" && (
+          <SettingsPanel geminiKey={geminiKey} setGeminiKey={setGeminiKey} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+document.getElementById("loading").remove();
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
