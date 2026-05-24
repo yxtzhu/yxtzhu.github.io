@@ -1,5 +1,12 @@
-const CACHE = 'fire-calculator-v1';
-const ASSETS = ['./', './index.html', './manifest.json', './icons/icon.svg', './icons/icon-maskable.svg'];
+const CACHE = 'fire-calculator-v2';
+const ASSETS = [
+  './', './index.html', './manifest.json', './app.js',
+  './icons/icon.svg', './icons/icon-maskable.svg',
+  './vendor/react.production.min.js',
+  './vendor/react-dom.production.min.js',
+  './vendor/prop-types.min.js',
+  './vendor/recharts.min.js',
+];
 
 self.addEventListener('install', e =>
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()))
