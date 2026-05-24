@@ -857,7 +857,7 @@ const AnalyzeModal = ({ image, text, apiKey, onLog, onClose }) => {
             { inline_data: { mime_type: image.split(";")[0].split(":")[1], data: image.split(",")[1] } },
           ]
         : [{ text: buildTextPrompt(text) }];
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
