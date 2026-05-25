@@ -1,4 +1,4 @@
-const CACHE = 'fire-calculator-v2';
+const CACHE = 'fire-calculator-v3';
 const ASSETS = [
   './', './index.html', './manifest.json', './app.js',
   './icons/icon.svg', './icons/icon-maskable.svg',
