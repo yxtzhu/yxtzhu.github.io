@@ -2,7 +2,7 @@
 // Caches the launcher shell for offline use.
 // Individual apps manage their own service workers.
 
-const CACHE_NAME = 'app-launcher-v4';
+const CACHE_NAME = 'app-launcher-v5';
 
 const LAUNCHER_ASSETS = [
   '/apps/',
@@ -37,7 +37,12 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch: cache-first for launcher assets, network-first for everything else
+// Fetch strategy:
+//  - The launcher shell HTML ('/apps/' and '/apps/index.html') is network-first
+//    so newly added apps appear as soon as they are deployed; falls back to the
+//    cached copy when offline.
+//  - Static launcher assets (icons, manifest) are cache-first for speed.
+//  - Everything else (individual app content) is network-first.
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
@@ -46,14 +51,13 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first strategy for the launcher shell
-  const isLauncherAsset = url.pathname === '/apps/' ||
-    url.pathname === '/apps/index.html' ||
-    url.pathname.startsWith('/apps/icons/') ||
+  const isShell = url.pathname === '/apps/' || url.pathname === '/apps/index.html';
+  const isStaticAsset = url.pathname.startsWith('/apps/icons/') ||
     url.pathname === '/apps/manifest.json' ||
     url.pathname === '/apps/sw.js';
 
-  if (isLauncherAsset) {
+  if (isStaticAsset) {
+    // Cache-first
     event.respondWith(
       caches.match(event.request).then(cached => {
         if (cached) return cached;
@@ -65,9 +69,19 @@ self.addEventListener('fetch', event => {
         });
       })
     );
-  }
-  // Network-first for app content
-  else {
+  } else if (isShell) {
+    // Network-first: keep the app list fresh, fall back to cache offline
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
+  } else {
+    // Network-first for individual app content
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     );
