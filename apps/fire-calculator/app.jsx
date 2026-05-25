@@ -1329,29 +1329,32 @@ function App() {
     }
     return null;
   })();
-  return React.createElement("div", {
-    style: {
-      "--bg": "#0E0F0D",
-      "--surface": "#161714",
-      "--surface2": "#1E1F1C",
-      "--border": "#2C2D29",
-      "--text": "#E8E4D9",
-      "--muted": "#7A7B74",
-      "--muted2": "#52534E",
-      "--gold": "#C9A96E",
-      "--green": "#7EB8A4",
-      "--input-bg": "#1A1B18",
-      "--serif": "'Playfair Display', Georgia, serif",
-      "--mono": "'DM Mono', 'Courier New', monospace",
-      background: "var(--bg)",
-      color: "var(--text)",
-      fontFamily: "var(--mono)",
-      minHeight: "100vh",
-      fontSize: "0.82rem",
-      lineHeight: 1.5,
-      overflowX: "hidden"
-    }
-  }, React.createElement("style", null, `
+
+  return (
+    <div
+      style={{
+        "--bg": "#0E0F0D",
+        "--surface": "#161714",
+        "--surface2": "#1E1F1C",
+        "--border": "#2C2D29",
+        "--text": "#E8E4D9",
+        "--muted": "#7A7B74",
+        "--muted2": "#52534E",
+        "--gold": "#C9A96E",
+        "--green": "#7EB8A4",
+        "--input-bg": "#1A1B18",
+        "--serif": "'Playfair Display', Georgia, serif",
+        "--mono": "'DM Mono', 'Courier New', monospace",
+        background: "var(--bg)",
+        color: "var(--text)",
+        fontFamily: "var(--mono)",
+        minHeight: "100vh",
+        fontSize: "0.82rem",
+        lineHeight: 1.5,
+        overflowX: "hidden"
+      }}
+    >
+      <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=DM+Mono:wght@300;400&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         input[type=range] { -webkit-appearance: none; width: 100%; height: 2px; background: #2C2D29; border-radius: 2px; outline: none; cursor: pointer; }
@@ -1376,1046 +1379,386 @@ function App() {
         th, td { padding: 0.3rem 0.4rem; }
         th { font-weight: 400; }
         tr + tr td { border-top: 1px solid var(--border); }
-      `), React.createElement("div", {
-    style: {
-      borderBottom: "1px solid var(--border)",
-      padding: "0.9rem 1rem 0"
-    }
-  }, React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "baseline",
-      gap: "0.6rem",
-      marginBottom: "0.45rem",
-      flexWrap: "wrap"
-    }
-  }, React.createElement("h1", {
-    style: {
-      fontFamily: "var(--serif)",
-      fontSize: "1.3rem",
-      fontWeight: 400
-    }
-  }, "FIRE Calculator"), React.createElement("span", {
-    style: {
-      fontSize: "0.58rem",
-      color: "var(--muted)",
-      letterSpacing: "0.12em",
-      textTransform: "uppercase"
-    }
-  }, "Financial Independence \xB7 Retire Early")), React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: "0.5rem 1rem",
-      marginBottom: "0.55rem",
-      flexWrap: "wrap"
-    }
-  }, Object.entries(VARIANTS).map(([k, v]) => React.createElement("div", {
-    key: k,
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: "0.3rem"
-    }
-  }, React.createElement("div", {
-    style: {
-      width: 5,
-      height: 5,
-      borderRadius: "50%",
-      background: v.color,
-      flexShrink: 0
-    }
-  }), React.createElement("span", {
-    style: {
-      fontSize: "0.58rem",
-      color: "var(--muted)",
-      textTransform: "uppercase",
-      letterSpacing: "0.06em"
-    }
-  }, v.label), React.createElement("span", {
-    style: {
-      fontSize: "0.76rem",
-      fontFamily: "var(--serif)",
-      color: v.color
-    }
-  }, results[k].years >= 60 ? "60+" : `Age ${age + Math.round(results[k].years)}`))), hcAdjustment > 0 && React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: "0.3rem",
-      borderLeft: "1px solid var(--border)",
-      paddingLeft: "0.75rem"
-    }
-  }, React.createElement("span", {
-    style: {
-      fontSize: "0.58rem",
-      color: "#E07B6A",
-      letterSpacing: "0.06em"
-    }
-  }, "+", fmt(hcAdjustment), " HC adj."))), React.createElement("div", {
-    style: {
-      display: "flex",
-      overflowX: "auto"
-    }
-  }, TABS.map(t => React.createElement("button", {
-    key: t,
-    className: `tab ${tab === t ? "on" : ""}`,
-    onClick: () => setTab(t)
-  }, t)))), React.createElement("div", {
-    style: {
-      padding: "1rem",
-      overflowY: "auto"
-    }
-  }, tab === "Inputs" && React.createElement("div", {
-    className: "fu",
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "0.75rem"
-    }
-  }, React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    className: "sl"
-  }, "Profile"), React.createElement("div", {
-    className: "g2"
-  }, React.createElement("div", null, React.createElement(Slider, {
-    label: "Current Age",
-    value: age,
-    onChange: setAge,
-    min: 20,
-    max: 60,
-    step: 1,
-    format: v => `${v}`
-  }), React.createElement(NumInput, {
-    label: "Current Portfolio",
-    value: savings,
-    onChange: setSavings,
-    sub: "401k, IRA, brokerage combined"
-  }), React.createElement(NumInput, {
-    label: "Annual Gross Income",
-    value: income,
-    onChange: setIncome
-  })), React.createElement("div", null, React.createElement(Slider, {
-    label: "Savings Rate",
-    value: sr,
-    onChange: setSr,
-    min: 5,
-    max: 70,
-    step: 1,
-    format: v => `${v}%`,
-    sub: `≈ ${fmt(income * sr / 100 * (1 - tax / 100))} after-tax/yr`
-  }), React.createElement(NumInput, {
-    label: "Partner Income (optional)",
-    value: partner,
-    onChange: setPartner
-  }), partner > 0 && React.createElement(Slider, {
-    label: "Partner Savings Rate",
-    value: psr,
-    onChange: setPsr,
-    min: 0,
-    max: 70,
-    step: 1,
-    format: v => `${v}%`
-  })))), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    className: "sl"
-  }, "Returns & Rates"), React.createElement("div", {
-    className: "g2"
-  }, React.createElement("div", null, React.createElement(Slider, {
-    label: "Return (nominal)",
-    value: ret,
-    onChange: setRet,
-    min: 3,
-    max: 12,
-    step: 0.5,
-    format: v => `${v}%`,
-    sub: "S&P 500 long-run avg ~10%"
-  }), React.createElement(Slider, {
-    label: "Inflation",
-    value: inf,
-    onChange: setInf,
-    min: 1,
-    max: 6,
-    step: 0.25,
-    format: v => `${v}%`
-  }), React.createElement("div", {
-    style: {
-      background: "var(--surface2)",
-      borderRadius: 4,
-      padding: "0.45rem 0.6rem",
-      marginBottom: "0.5rem",
-      display: "flex",
-      justifyContent: "space-between",
-      fontSize: "0.7rem"
-    }
-  }, React.createElement("span", {
-    style: {
-      color: "var(--muted)"
-    }
-  }, "Real Return"), React.createElement("span", {
-    style: {
-      color: "var(--green)",
-      fontFamily: "var(--serif)"
-    }
-  }, (ret - inf).toFixed(2), "%"))), React.createElement("div", null, React.createElement(Slider, {
-    label: "Safe Withdrawal Rate",
-    value: swr,
-    onChange: setSwr,
-    min: 3,
-    max: 5,
-    step: 0.1,
-    format: v => `${v}%`,
-    sub: "4% = Trinity Study"
-  }), React.createElement(Slider, {
-    label: "Effective Tax Rate",
-    value: tax,
-    onChange: setTax,
-    min: 0,
-    max: 45,
-    step: 1,
-    format: v => `${v}%`
-  })))), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "baseline",
-      marginBottom: "0.8rem"
-    }
-  }, React.createElement("div", {
-    className: "sl",
-    style: {
-      marginBottom: 0
-    }
-  }, "Monthly Expenses"), React.createElement("span", {
-    style: {
-      fontSize: "0.65rem",
-      color: "var(--muted)"
-    }
-  }, fmt(Object.values(monthly).reduce((a, b) => a + b, 0) * 12), "/yr")), MONTHLY_CATS.map(c => React.createElement(SpendRow, {
-    key: c.key,
-    label: c.label,
-    hint: c.hint,
-    isMonthly: true,
-    value: monthly[c.key] ?? 0,
-    onChange: v => setMonthly(m => ({
-      ...m,
-      [c.key]: v
-    }))
-  })), React.createElement("div", {
-    style: {
-      borderTop: "1px solid rgba(224,123,106,0.25)",
-      paddingTop: "0.5rem",
-      marginTop: "0.25rem"
-    }
-  }, React.createElement(SpendRow, {
-    label: "Health Insurance",
-    hint: "premiums + out-of-pocket \u2014 projected by phase in Healthcare tab",
-    isMonthly: true,
-    value: healthMonthly,
-    onChange: setHealthMonthly
-  }), React.createElement("div", {
-    style: {
-      fontSize: "0.6rem",
-      color: "#E07B6A",
-      marginTop: "-0.25rem",
-      marginBottom: "0.5rem",
-      paddingLeft: "0.1rem"
-    }
-  }, "This amount is phase-projected: ACA pre-65 \u2192 Medicare 65\u201374 \u2192 Medicare + LTC 75+")), React.createElement("div", {
-    style: {
-      borderTop: "1px solid var(--border)",
-      paddingTop: "0.5rem",
-      marginTop: "0.3rem",
-      display: "flex",
-      justifyContent: "space-between",
-      fontSize: "0.7rem"
-    }
-  }, React.createElement("span", {
-    style: {
-      color: "var(--muted)",
-      textTransform: "uppercase",
-      letterSpacing: "0.08em"
-    }
-  }, "Monthly total"), React.createElement("span", {
-    style: {
-      fontFamily: "var(--serif)",
-      color: "var(--gold)"
-    }
-  }, fmt(Object.values(monthly).reduce((a, b) => a + b, 0) + healthMonthly), "/mo"))), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "baseline",
-      marginBottom: "0.8rem"
-    }
-  }, React.createElement("div", {
-    className: "sl",
-    style: {
-      marginBottom: 0
-    }
-  }, "Annual Expenses"), React.createElement("span", {
-    style: {
-      fontSize: "0.65rem",
-      color: "var(--muted)"
-    }
-  }, "one-time or irregular")), ANNUAL_CATS.map(c => React.createElement(SpendRow, {
-    key: c.key,
-    label: c.label,
-    hint: c.hint,
-    isMonthly: false,
-    value: annual[c.key] ?? 0,
-    onChange: v => setAnnual(a => ({
-      ...a,
-      [c.key]: v
-    }))
-  })), React.createElement("div", {
-    style: {
-      borderTop: "1px solid var(--border)",
-      paddingTop: "0.5rem",
-      marginTop: "0.3rem",
-      display: "flex",
-      justifyContent: "space-between",
-      fontSize: "0.7rem"
-    }
-  }, React.createElement("span", {
-    style: {
-      color: "var(--muted)",
-      textTransform: "uppercase",
-      letterSpacing: "0.08em"
-    }
-  }, "Annual extras"), React.createElement("span", {
-    style: {
-      fontFamily: "var(--serif)",
-      color: "var(--gold)"
-    }
-  }, fmt(Object.values(annual).reduce((a, b) => a + b, 0)), "/yr"))), React.createElement("div", {
-    className: "card",
-    style: {
-      borderColor: "rgba(201,169,110,0.3)"
-    }
-  }, React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: "0.4rem"
-    }
-  }, React.createElement("span", {
-    style: {
-      fontSize: "0.65rem",
-      color: "var(--muted)",
-      textTransform: "uppercase",
-      letterSpacing: "0.1em"
-    }
-  }, "Total Annual Spend"), React.createElement("span", {
-    style: {
-      fontFamily: "var(--serif)",
-      fontSize: "1.4rem",
-      color: "var(--gold)"
-    }
-  }, fmt(totalAnnual))), React.createElement("div", {
-    style: {
-      fontSize: "0.62rem",
-      color: "var(--muted2)"
-    }
-  }, fmt(totalAnnual / 12), "/mo avg \xB7 feeds all FIRE targets \xB7 healthcare projected separately"))), tab === "Projection" && React.createElement("div", {
-    className: "fu",
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "0.75rem"
-    }
-  }, React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: "0.4rem",
-      flexWrap: "wrap"
-    }
-  }, Object.entries(VARIANTS).map(([k, v]) => React.createElement("button", {
-    key: k,
-    className: "pill",
-    onClick: () => setActiveV(k),
-    style: activeV === k ? {
-      borderColor: v.color,
-      color: v.color,
-      background: `${v.color}12`
-    } : {}
-  }, v.label))), React.createElement("div", {
-    className: "g2"
-  }, [{
-    label: "Target",
-    value: fmt(results[activeV]?.target),
-    sub: `at ${swr}% SWR`
-  }, {
-    label: "Years Away",
-    value: fmtYrs(results[activeV]?.years),
-    sub: `FIRE age ${age + Math.round(results[activeV]?.years ?? 0)}`
-  }, {
-    label: "Portfolio",
-    value: fmt(savings),
-    sub: `${pct(savings, results[activeV]?.target)}% of target`
-  }, {
-    label: "Annual Contrib",
-    value: fmt(contrib),
-    sub: `${sr}% SR · ${fmt(totalAnnual)}/yr spend`
-  }].map(s => React.createElement("div", {
-    key: s.label,
-    className: "card",
-    style: {
-      textAlign: "center"
-    }
-  }, React.createElement("div", {
-    style: {
-      fontSize: "0.6rem",
-      color: "var(--muted)",
-      textTransform: "uppercase",
-      letterSpacing: "0.1em",
-      marginBottom: "0.25rem"
-    }
-  }, s.label), React.createElement("div", {
-    style: {
-      fontFamily: "var(--serif)",
-      fontSize: "1.2rem",
-      color: "var(--gold)",
-      marginBottom: "0.15rem"
-    }
-  }, s.value), React.createElement("div", {
-    style: {
-      fontSize: "0.58rem",
-      color: "var(--muted2)",
-      lineHeight: 1.3
-    }
-  }, s.sub)))), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      marginBottom: "0.35rem",
-      fontSize: "0.68rem"
-    }
-  }, React.createElement("span", {
-    style: {
-      color: "var(--muted)",
-      textTransform: "uppercase",
-      letterSpacing: "0.08em"
-    }
-  }, "Progress to ", VARIANTS[activeV].label), React.createElement("span", {
-    style: {
-      color: "var(--gold)",
-      fontFamily: "var(--serif)"
-    }
-  }, pct(savings, results[activeV]?.target), "%")), React.createElement("div", {
-    style: {
-      height: 6,
-      background: "var(--border)",
-      borderRadius: 3,
-      overflow: "hidden"
-    }
-  }, React.createElement("div", {
-    style: {
-      height: "100%",
-      width: `${pct(savings, results[activeV]?.target)}%`,
-      background: `linear-gradient(90deg, ${VARIANTS[activeV]?.color}55, ${VARIANTS[activeV]?.color})`,
-      borderRadius: 3,
-      transition: "width 0.5s"
-    }
-  }))), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    className: "sl"
-  }, "Portfolio Growth vs. FIRE Targets (HC-adjusted)"), React.createElement(ResponsiveContainer, {
-    width: "100%",
-    height: 250
-  }, React.createElement(AreaChart, {
-    data: projData,
-    margin: {
-      top: 8,
-      right: 8,
-      left: 0,
-      bottom: 0
-    }
-  }, React.createElement("defs", null, React.createElement("linearGradient", {
-    id: "pg",
-    x1: "0",
-    y1: "0",
-    x2: "0",
-    y2: "1"
-  }, React.createElement("stop", {
-    offset: "5%",
-    stopColor: "#C9A96E",
-    stopOpacity: 0.2
-  }), React.createElement("stop", {
-    offset: "95%",
-    stopColor: "#C9A96E",
-    stopOpacity: 0
-  }))), React.createElement(CartesianGrid, {
-    strokeDasharray: "3 3",
-    stroke: "#2C2D29"
-  }), React.createElement(XAxis, {
-    dataKey: "age",
-    stroke: "#52534E",
-    tick: {
-      fontSize: 9,
-      fill: "#7A7B74"
-    }
-  }), React.createElement(YAxis, {
-    stroke: "#52534E",
-    tick: {
-      fontSize: 9,
-      fill: "#7A7B74"
-    },
-    tickFormatter: fmt,
-    width: 52
-  }), React.createElement(Tooltip, {
-    content: React.createElement(Tip, null)
-  }), React.createElement(Area, {
-    type: "monotone",
-    dataKey: "portfolio",
-    name: "Portfolio",
-    stroke: "#C9A96E",
-    fill: "url(#pg)",
-    strokeWidth: 2,
-    dot: false
-  }), React.createElement(Line, {
-    type: "monotone",
-    dataKey: "lean",
-    name: "Lean FIRE",
-    stroke: "#7EB8A4",
-    strokeWidth: 1,
-    strokeDasharray: "4 3",
-    dot: false
-  }), React.createElement(Line, {
-    type: "monotone",
-    dataKey: "regular",
-    name: "FIRE",
-    stroke: "#C9A96E",
-    strokeWidth: 1,
-    strokeDasharray: "4 3",
-    dot: false
-  }), React.createElement(Line, {
-    type: "monotone",
-    dataKey: "fat",
-    name: "Fat FIRE",
-    stroke: "#E07B6A",
-    strokeWidth: 1,
-    strokeDasharray: "4 3",
-    dot: false
-  }), results[activeV].years < 60 && React.createElement(ReferenceLine, {
-    x: age + Math.round(results[activeV].years),
-    stroke: VARIANTS[activeV].color,
-    strokeDasharray: "5 3",
-    label: {
-      value: "FIRE",
-      fill: VARIANTS[activeV].color,
-      fontSize: 9
-    }
-  })))), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    className: "sl"
-  }, "FIRE Targets (healthcare-adjusted)"), hcAdjustment > 0 && React.createElement("div", {
-    style: {
-      background: "rgba(224,123,106,0.07)",
-      border: "1px solid rgba(224,123,106,0.2)",
-      borderRadius: 4,
-      padding: "0.5rem 0.65rem",
-      marginBottom: "0.75rem",
-      fontSize: "0.68rem"
-    }
-  }, React.createElement("span", {
-    style: {
-      color: "#E07B6A"
-    }
-  }, "+", fmt(hcAdjustment)), React.createElement("span", {
-    style: {
-      color: "var(--muted)"
-    }
-  }, " added to each target as NPV of projected excess healthcare costs over 30-yr retirement. "), React.createElement("span", {
-    style: {
-      color: "var(--muted2)"
-    }
-  }, "See Healthcare tab for detail.")), Object.entries(VARIANTS).map(([k, v]) => {
-    const r = results[k];
-    return React.createElement("div", {
-      key: k,
-      style: {
-        marginBottom: "0.7rem",
-        paddingBottom: "0.7rem",
-        borderBottom: "1px solid var(--border)"
-      }
-    }, React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "baseline",
-        marginBottom: "0.2rem"
-      }
-    }, React.createElement("span", {
-      style: {
-        fontSize: "0.7rem",
-        color: v.color,
-        textTransform: "uppercase",
-        letterSpacing: "0.08em"
-      }
-    }, v.label), React.createElement("span", {
-      style: {
-        fontFamily: "var(--serif)",
-        fontSize: "1rem"
-      }
-    }, fmt(r.target))), React.createElement("div", {
-      style: {
-        fontSize: "0.6rem",
-        color: "var(--muted2)",
-        marginBottom: "0.25rem"
-      }
-    }, fmt(r.annualSpend), "/yr spend \xB7 ", swr, "% SWR"), React.createElement("div", {
-      className: "bar"
-    }, React.createElement("div", {
-      className: "bar-fill",
-      style: {
-        width: `${pct(savings, r.target)}%`,
-        background: v.color
-      }
-    })));
-  })), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    className: "sl"
-  }, "Budget by FIRE Target"), React.createElement("div", {
-    style: {
-      overflowX: "auto"
-    }
-  }, React.createElement("table", null, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", {
-    style: {
-      textAlign: "left",
-      color: "var(--muted)",
-      fontSize: "0.6rem",
-      textTransform: "uppercase",
-      letterSpacing: "0.08em"
-    }
-  }, "Category"), React.createElement("th", {
-    style: {
-      textAlign: "right",
-      color: "var(--muted)",
-      fontSize: "0.6rem"
-    }
-  }, "Your Budget"), ["lean", "regular", "fat"].map(k => React.createElement("th", {
-    key: k,
-    style: {
-      textAlign: "right",
-      color: VARIANTS[k].color,
-      fontSize: "0.6rem",
-      textTransform: "uppercase"
-    }
-  }, VARIANTS[k].label)))), React.createElement("tbody", null, MONTHLY_CATS.map(c => {
-    const v = (monthly[c.key] ?? 0) * 12;
-    return React.createElement("tr", {
-      key: c.key
-    }, React.createElement("td", {
-      style: {
-        color: "var(--muted)",
-        fontSize: "0.65rem"
-      }
-    }, c.label), React.createElement("td", {
-      style: {
-        textAlign: "right",
-        fontFamily: "var(--serif)",
-        fontSize: "0.78rem"
-      }
-    }, fmt(v)), [0.6, 1.0, 1.6].map((m, i) => React.createElement("td", {
-      key: i,
-      style: {
-        textAlign: "right",
-        fontFamily: "var(--serif)",
-        fontSize: "0.78rem",
-        color: ["var(--green)", "var(--gold)", "#E07B6A"][i]
-      }
-    }, fmt(v * m))));
-  }), React.createElement("tr", null, React.createElement("td", {
-    style: {
-      color: "#E07B6A",
-      fontSize: "0.65rem"
-    }
-  }, "Health (today)"), React.createElement("td", {
-    style: {
-      textAlign: "right",
-      fontFamily: "var(--serif)",
-      fontSize: "0.78rem"
-    }
-  }, fmt(currentHealthAnnual)), [0.6, 1.0, 1.6].map((m, i) => React.createElement("td", {
-    key: i,
-    style: {
-      textAlign: "right",
-      fontFamily: "var(--serif)",
-      fontSize: "0.78rem",
-      color: "#E07B6A",
-      fontStyle: "italic"
-    }
-  }, "phase-adj."))), ANNUAL_CATS.map(c => {
-    const v = annual[c.key] ?? 0;
-    return React.createElement("tr", {
-      key: c.key
-    }, React.createElement("td", {
-      style: {
-        color: "var(--muted)",
-        fontSize: "0.65rem"
-      }
-    }, c.label), React.createElement("td", {
-      style: {
-        textAlign: "right",
-        fontFamily: "var(--serif)",
-        fontSize: "0.78rem"
-      }
-    }, fmt(v)), [0.6, 1.0, 1.6].map((m, i) => React.createElement("td", {
-      key: i,
-      style: {
-        textAlign: "right",
-        fontFamily: "var(--serif)",
-        fontSize: "0.78rem",
-        color: ["var(--green)", "var(--gold)", "#E07B6A"][i]
-      }
-    }, fmt(v * m))));
-  })), React.createElement("tfoot", null, React.createElement("tr", {
-    style: {
-      borderTop: "1px solid var(--muted2)"
-    }
-  }, React.createElement("td", {
-    style: {
-      color: "var(--muted)",
-      fontSize: "0.65rem",
-      textTransform: "uppercase",
-      paddingTop: "0.45rem"
-    }
-  }, "Total/yr"), React.createElement("td", {
-    style: {
-      textAlign: "right",
-      fontFamily: "var(--serif)",
-      paddingTop: "0.45rem"
-    }
-  }, fmt(totalAnnual)), ["lean", "regular", "fat"].map(k => React.createElement("td", {
-    key: k,
-    style: {
-      textAlign: "right",
-      fontFamily: "var(--serif)",
-      fontSize: "0.85rem",
-      color: VARIANTS[k].color,
-      paddingTop: "0.45rem"
-    }
-  }, fmt(totalAnnual * VARIANTS[k].spendMult)))), React.createElement("tr", null, React.createElement("td", {
-    style: {
-      color: "var(--muted)",
-      fontSize: "0.62rem",
-      textTransform: "uppercase"
-    }
-  }, "FIRE Target (HC-adj)"), React.createElement("td", {
-    style: {
-      textAlign: "right",
-      fontFamily: "var(--serif)",
-      fontSize: "0.78rem"
-    }
-  }, fmt(fireTargets.regular)), ["lean", "regular", "fat"].map(k => React.createElement("td", {
-    key: k,
-    style: {
-      textAlign: "right",
-      fontFamily: "var(--serif)",
-      fontSize: "0.78rem",
-      color: VARIANTS[k].color
-    }
-  }, fmt(fireTargets[k]))))))))), tab === "Healthcare" && React.createElement("div", {
-    className: "fu",
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "0.75rem"
-    }
-  }, React.createElement("div", {
-    className: "card",
-    style: {
-      borderColor: "rgba(224,123,106,0.3)"
-    }
-  }, React.createElement("div", {
-    className: "sl"
-  }, "Healthcare & Your FIRE Number"), React.createElement("div", {
-    style: {
-      fontSize: "0.72rem",
-      color: "var(--muted)",
-      lineHeight: 1.6,
-      marginBottom: "0.85rem"
-    }
-  }, "Healthcare gets more expensive as you age \u2014 and pricier once you leave an employer plan. We estimate how much your health costs rise ", React.createElement("em", null, "above"), " normal inflation across retirement, then add that extra to your FIRE number so it isn't a surprise."), React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "baseline",
-      background: "rgba(224,123,106,0.07)",
-      border: "1px solid rgba(224,123,106,0.2)",
-      borderRadius: 6,
-      padding: "0.7rem 0.85rem"
-    }
-  }, React.createElement("div", null, React.createElement("div", {
-    style: {
-      fontSize: "0.62rem",
-      color: "var(--muted)",
-      textTransform: "uppercase",
-      letterSpacing: "0.09em"
-    }
-  }, "Added to your FIRE target"), React.createElement("div", {
-    style: {
-      fontSize: "0.58rem",
-      color: "var(--muted2)",
-      marginTop: "0.15rem"
-    }
-  }, "Based on ", fmt(healthMonthly), "/mo today, set on the Inputs tab")), React.createElement("span", {
-    style: {
-      fontFamily: "var(--serif)",
-      fontSize: "1.5rem",
-      color: "#E07B6A"
-    }
-  }, "+", fmt(hcAdjustment)))), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    className: "sl"
-  }, "The Three Phases"), React.createElement("div", {
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "0.5rem"
-    }
-  }, HC_PHASES.map(p => React.createElement("div", {
-    key: p.key,
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "baseline",
-      background: "var(--surface2)",
-      borderRadius: 5,
-      padding: "0.55rem 0.7rem",
-      borderLeft: `3px solid ${p.color}`
-    }
-  }, React.createElement("div", null, React.createElement("div", {
-    style: {
-      fontSize: "0.72rem",
-      color: p.color
-    }
-  }, p.label), React.createElement("div", {
-    style: {
-      fontSize: "0.6rem",
-      color: "var(--muted2)"
-    }
-  }, "Ages ", p.ageRange)), React.createElement("span", {
-    style: {
-      fontFamily: "var(--serif)",
-      color: p.color,
-      fontSize: "0.9rem"
-    }
-  }, "~", fmt(p.baseMonthly), "/mo")))), React.createElement("div", {
-    style: {
-      fontSize: "0.6rem",
-      color: "var(--muted2)",
-      marginTop: "0.6rem",
-      lineHeight: 1.5
-    }
-  }, "Pre-65 you buy private ACA coverage (the priciest stretch). Medicare starts at 65 and lowers costs. After 75, long-term-care risk pushes them back up. Change the starting point with \"Health Insurance\" on the Inputs tab."))), tab === "Scenarios" && React.createElement("div", {
-    className: "fu",
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "0.75rem"
-    }
-  }, React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    className: "sl"
-  }, "Pick a Retirement Age"), React.createElement(Slider, {
-    label: "Target FIRE Age",
-    value: targetAge,
-    onChange: setTargetAge,
-    min: age + 1,
-    max: 70,
-    step: 1,
-    format: v => `${v}`,
-    sub: `${targetYears} yrs from now · reach ${fmt(fireTargets.regular)} (HC-adjusted)`
-  }), React.createElement("div", {
-    className: "g2",
-    style: {
-      marginTop: "0.25rem"
-    }
-  }, React.createElement("div", {
-    style: {
-      background: "var(--surface2)",
-      borderRadius: 6,
-      padding: "0.7rem",
-      textAlign: "center"
-    }
-  }, React.createElement("div", {
-    style: {
-      fontSize: "0.59rem",
-      color: "var(--muted)",
-      textTransform: "uppercase",
-      letterSpacing: "0.09em",
-      marginBottom: "0.25rem"
-    }
-  }, "Savings rate needed"), React.createElement("div", {
-    style: {
-      fontFamily: "var(--serif)",
-      fontSize: "1.4rem",
-      color: reqSR == null ? "#E07B6A" : reqSR <= sr ? "var(--green)" : "var(--gold)"
-    }
-  }, reqSR == null ? "—" : `${reqSR}%`), React.createElement("div", {
-    style: {
-      fontSize: "0.58rem",
-      color: "var(--muted2)",
-      marginTop: "0.15rem"
-    }
-  }, reqSR == null ? `out of reach by ${targetAge} at ${ret}% return` : `you're at ${sr}% now`)), React.createElement("div", {
-    style: {
-      background: "var(--surface2)",
-      borderRadius: 6,
-      padding: "0.7rem",
-      textAlign: "center"
-    }
-  }, React.createElement("div", {
-    style: {
-      fontSize: "0.59rem",
-      color: "var(--muted)",
-      textTransform: "uppercase",
-      letterSpacing: "0.09em",
-      marginBottom: "0.25rem"
-    }
-  }, "Return needed"), React.createElement("div", {
-    style: {
-      fontFamily: "var(--serif)",
-      fontSize: "1.4rem",
-      color: reqReturn == null ? "#E07B6A" : reqReturn <= ret ? "var(--green)" : "var(--gold)"
-    }
-  }, reqReturn == null ? "—" : `${reqReturn}%`), React.createElement("div", {
-    style: {
-      fontSize: "0.58rem",
-      color: "var(--muted2)",
-      marginTop: "0.15rem"
-    }
-  }, reqReturn == null ? `out of reach by ${targetAge} at ${sr}% savings` : `you're at ${ret}% now · nominal`))), React.createElement("div", {
-    style: {
-      fontSize: "0.6rem",
-      color: "var(--muted2)",
-      marginTop: "0.6rem",
-      lineHeight: 1.5
-    }
-  }, "Each figure is what it would take on its own to hit your target age \u2014 holding everything else at your current Inputs.")), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    className: "sl"
-  }, "If You Change Your Savings Rate"), React.createElement("div", {
-    className: "g3",
-    style: {
-      gap: "0.4rem"
-    }
-  }, [20, 25, 30, 35, 40, 50].map(s => {
-    const fa = fireAgeForSR(s);
-    const hits = fa != null && fa <= targetAge;
-    const cur = s === sr;
-    return React.createElement("div", {
-      key: s,
-      style: {
-        background: cur ? "rgba(201,169,110,0.09)" : "var(--surface2)",
-        border: cur ? "1px solid var(--gold)" : hits ? "1px solid rgba(126,184,164,0.4)" : "1px solid transparent",
-        borderRadius: 6,
-        padding: "0.55rem",
-        textAlign: "center"
-      }
-    }, React.createElement("div", {
-      style: {
-        fontSize: "0.59rem",
-        color: cur ? "var(--gold)" : "var(--muted)",
-        textTransform: "uppercase",
-        marginBottom: "0.15rem"
-      }
-    }, "SR ", s, "%"), React.createElement("div", {
-      style: {
-        fontFamily: "var(--serif)",
-        fontSize: "1rem",
-        color: hits ? "var(--green)" : "var(--text)"
-      }
-    }, fa == null || fa > age + 60 ? "60+" : `age ${fa}`), React.createElement("div", {
-      style: {
-        fontSize: "0.57rem",
-        color: "var(--muted2)"
-      }
-    }, fa == null ? "" : fa <= targetAge ? "on time" : `${fa - targetAge}y late`));
-  }))), React.createElement("div", {
-    className: "card"
-  }, React.createElement("div", {
-    className: "sl"
-  }, "If Markets Return Differently"), React.createElement("div", {
-    className: "g3",
-    style: {
-      gap: "0.4rem"
-    }
-  }, [4, 5, 6, 7, 8, 9].map(r => {
-    const fa = fireAgeForRet(r);
-    const hits = fa != null && fa <= targetAge;
-    const cur = r === Math.round(ret);
-    return React.createElement("div", {
-      key: r,
-      style: {
-        background: cur ? "rgba(201,169,110,0.09)" : "var(--surface2)",
-        border: cur ? "1px solid var(--gold)" : hits ? "1px solid rgba(126,184,164,0.4)" : "1px solid transparent",
-        borderRadius: 6,
-        padding: "0.55rem",
-        textAlign: "center"
-      }
-    }, React.createElement("div", {
-      style: {
-        fontSize: "0.59rem",
-        color: cur ? "var(--gold)" : "var(--muted)",
-        textTransform: "uppercase",
-        marginBottom: "0.15rem"
-      }
-    }, r, "% ret"), React.createElement("div", {
-      style: {
-        fontFamily: "var(--serif)",
-        fontSize: "1rem",
-        color: hits ? "var(--green)" : "var(--text)"
-      }
-    }, fa == null || fa > age + 60 ? "60+" : `age ${fa}`), React.createElement("div", {
-      style: {
-        fontSize: "0.57rem",
-        color: "var(--muted2)"
-      }
-    }, fa == null ? "" : fa <= targetAge ? "on time" : `${fa - targetAge}y late`));
-  })), React.createElement("div", {
-    style: {
-      fontSize: "0.6rem",
-      color: "var(--muted2)",
-      marginTop: "0.6rem",
-      lineHeight: 1.5
-    }
-  }, "Green = reaches your target age of ", targetAge, ". Returns are nominal; your inflation assumption (", inf, "%) still applies."))), tab === "Cities" && React.createElement(CitiesTab, {
-    savings: savings,
-    swr: swr,
-    fatAnnualHere: fatAnnualHere,
-    fatTargetHere: fatTargetHere,
-    yrsTo: yrsTo,
-    filteredCities: filteredCities,
-    cityRegion: cityRegion,
-    setCityRegion: setCityRegion,
-    citySort: citySort,
-    setCitySort: setCitySort,
-    totalAnnual: totalAnnual,
-    age: age,
-    income: income,
-    sr: sr,
-    geminiKey: geminiKey
-  }), tab === "⚙" && React.createElement(SettingsPanel, {
-    geminiKey: geminiKey,
-    setGeminiKey: setGeminiKey
-  })));
+      `}</style>
+
+      <div style={{ borderBottom: "1px solid var(--border)", padding: "0.9rem 1rem 0" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "0.6rem", marginBottom: "0.45rem", flexWrap: "wrap" }}>
+          <h1 style={{ fontFamily: "var(--serif)", fontSize: "1.3rem", fontWeight: 400 }}>FIRE Calculator</h1>
+          <span style={{ fontSize: "0.58rem", color: "var(--muted)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Financial Independence · Retire Early</span>
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem 1rem", marginBottom: "0.55rem", flexWrap: "wrap" }}>
+          {Object.entries(VARIANTS).map(([k, v]) => (
+            <div key={k} style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: v.color, flexShrink: 0 }} />
+              <span style={{ fontSize: "0.58rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{v.label}</span>
+              <span style={{ fontSize: "0.76rem", fontFamily: "var(--serif)", color: v.color }}>{results[k].years >= 60 ? "60+" : `Age ${age + Math.round(results[k].years)}`}</span>
+            </div>
+          ))}
+          {hcAdjustment > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", borderLeft: "1px solid var(--border)", paddingLeft: "0.75rem" }}>
+              <span style={{ fontSize: "0.58rem", color: "#E07B6A", letterSpacing: "0.06em" }}>+{fmt(hcAdjustment)} HC adj.</span>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", overflowX: "auto" }}>
+          {TABS.map(t => (
+            <button key={t} className={`tab ${tab === t ? "on" : ""}`} onClick={() => setTab(t)}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: "1rem", overflowY: "auto" }}>
+
+        {tab === "Inputs" && (
+          <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div className="card">
+              <div className="sl">Profile</div>
+              <div className="g2">
+                <div>
+                  <Slider label="Current Age" value={age} onChange={setAge} min={20} max={60} step={1} format={v => `${v}`} />
+                  <NumInput label="Current Portfolio" value={savings} onChange={setSavings} sub="401k, IRA, brokerage combined" />
+                  <NumInput label="Annual Gross Income" value={income} onChange={setIncome} />
+                </div>
+                <div>
+                  <Slider label="Savings Rate" value={sr} onChange={setSr} min={5} max={70} step={1} format={v => `${v}%`} sub={`≈ ${fmt(income * sr / 100 * (1 - tax / 100))} after-tax/yr`} />
+                  <NumInput label="Partner Income (optional)" value={partner} onChange={setPartner} />
+                  {partner > 0 && <Slider label="Partner Savings Rate" value={psr} onChange={setPsr} min={0} max={70} step={1} format={v => `${v}%`} />}
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="sl">{"Returns & Rates"}</div>
+              <div className="g2">
+                <div>
+                  <Slider label="Return (nominal)" value={ret} onChange={setRet} min={3} max={12} step={0.5} format={v => `${v}%`} sub="S&P 500 long-run avg ~10%" />
+                  <Slider label="Inflation" value={inf} onChange={setInf} min={1} max={6} step={0.25} format={v => `${v}%`} />
+                  <div style={{ background: "var(--surface2)", borderRadius: 4, padding: "0.45rem 0.6rem", marginBottom: "0.5rem", display: "flex", justifyContent: "space-between", fontSize: "0.7rem" }}>
+                    <span style={{ color: "var(--muted)" }}>Real Return</span>
+                    <span style={{ color: "var(--green)", fontFamily: "var(--serif)" }}>{(ret - inf).toFixed(2)}%</span>
+                  </div>
+                </div>
+                <div>
+                  <Slider label="Safe Withdrawal Rate" value={swr} onChange={setSwr} min={3} max={5} step={0.1} format={v => `${v}%`} sub="4% = Trinity Study" />
+                  <Slider label="Effective Tax Rate" value={tax} onChange={setTax} min={0} max={45} step={1} format={v => `${v}%`} />
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.8rem" }}>
+                <div className="sl" style={{ marginBottom: 0 }}>Monthly Expenses</div>
+                <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>{fmt(Object.values(monthly).reduce((a, b) => a + b, 0) * 12)}/yr</span>
+              </div>
+              {MONTHLY_CATS.map(c => (
+                <SpendRow key={c.key} label={c.label} hint={c.hint} isMonthly={true} value={monthly[c.key] ?? 0} onChange={v => setMonthly(m => ({ ...m, [c.key]: v }))} />
+              ))}
+              <div style={{ borderTop: "1px solid rgba(224,123,106,0.25)", paddingTop: "0.5rem", marginTop: "0.25rem" }}>
+                <SpendRow label="Health Insurance" hint="premiums + out-of-pocket — projected by phase in Healthcare tab" isMonthly={true} value={healthMonthly} onChange={setHealthMonthly} />
+                <div style={{ fontSize: "0.6rem", color: "#E07B6A", marginTop: "-0.25rem", marginBottom: "0.5rem", paddingLeft: "0.1rem" }}>This amount is phase-projected: ACA pre-65 → Medicare 65–74 → Medicare + LTC 75+</div>
+              </div>
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.5rem", marginTop: "0.3rem", display: "flex", justifyContent: "space-between", fontSize: "0.7rem" }}>
+                <span style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Monthly total</span>
+                <span style={{ fontFamily: "var(--serif)", color: "var(--gold)" }}>{fmt(Object.values(monthly).reduce((a, b) => a + b, 0) + healthMonthly)}/mo</span>
+              </div>
+            </div>
+
+            <div className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.8rem" }}>
+                <div className="sl" style={{ marginBottom: 0 }}>Annual Expenses</div>
+                <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>one-time or irregular</span>
+              </div>
+              {ANNUAL_CATS.map(c => (
+                <SpendRow key={c.key} label={c.label} hint={c.hint} isMonthly={false} value={annual[c.key] ?? 0} onChange={v => setAnnual(a => ({ ...a, [c.key]: v }))} />
+              ))}
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.5rem", marginTop: "0.3rem", display: "flex", justifyContent: "space-between", fontSize: "0.7rem" }}>
+                <span style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Annual extras</span>
+                <span style={{ fontFamily: "var(--serif)", color: "var(--gold)" }}>{fmt(Object.values(annual).reduce((a, b) => a + b, 0))}/yr</span>
+              </div>
+            </div>
+
+            <div className="card" style={{ borderColor: "rgba(201,169,110,0.3)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+                <span style={{ fontSize: "0.65rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Total Annual Spend</span>
+                <span style={{ fontFamily: "var(--serif)", fontSize: "1.4rem", color: "var(--gold)" }}>{fmt(totalAnnual)}</span>
+              </div>
+              <div style={{ fontSize: "0.62rem", color: "var(--muted2)" }}>{fmt(totalAnnual / 12)}/mo avg · feeds all FIRE targets · healthcare projected separately</div>
+            </div>
+          </div>
+        )}
+
+        {tab === "Projection" && (
+          <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+              {Object.entries(VARIANTS).map(([k, v]) => (
+                <button key={k} className="pill" onClick={() => setActiveV(k)} style={activeV === k ? { borderColor: v.color, color: v.color, background: `${v.color}12` } : {}}>{v.label}</button>
+              ))}
+            </div>
+
+            <div className="g2">
+              {[
+                { label: "Target", value: fmt(results[activeV]?.target), sub: `at ${swr}% SWR` },
+                { label: "Years Away", value: fmtYrs(results[activeV]?.years), sub: `FIRE age ${age + Math.round(results[activeV]?.years ?? 0)}` },
+                { label: "Portfolio", value: fmt(savings), sub: `${pct(savings, results[activeV]?.target)}% of target` },
+                { label: "Annual Contrib", value: fmt(contrib), sub: `${sr}% SR · ${fmt(totalAnnual)}/yr spend` }
+              ].map(s => (
+                <div key={s.label} className="card" style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "0.6rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>{s.label}</div>
+                  <div style={{ fontFamily: "var(--serif)", fontSize: "1.2rem", color: "var(--gold)", marginBottom: "0.15rem" }}>{s.value}</div>
+                  <div style={{ fontSize: "0.58rem", color: "var(--muted2)", lineHeight: 1.3 }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.35rem", fontSize: "0.68rem" }}>
+                <span style={{ color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Progress to {VARIANTS[activeV].label}</span>
+                <span style={{ color: "var(--gold)", fontFamily: "var(--serif)" }}>{pct(savings, results[activeV]?.target)}%</span>
+              </div>
+              <div style={{ height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct(savings, results[activeV]?.target)}%`, background: `linear-gradient(90deg, ${VARIANTS[activeV]?.color}55, ${VARIANTS[activeV]?.color})`, borderRadius: 3, transition: "width 0.5s" }} />
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="sl">Portfolio Growth vs. FIRE Targets (HC-adjusted)</div>
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={projData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#C9A96E" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#C9A96E" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2C2D29" />
+                  <XAxis dataKey="age" stroke="#52534E" tick={{ fontSize: 9, fill: "#7A7B74" }} />
+                  <YAxis stroke="#52534E" tick={{ fontSize: 9, fill: "#7A7B74" }} tickFormatter={fmt} width={52} />
+                  <Tooltip content={<Tip />} />
+                  <Area type="monotone" dataKey="portfolio" name="Portfolio" stroke="#C9A96E" fill="url(#pg)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="lean" name="Lean FIRE" stroke="#7EB8A4" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                  <Line type="monotone" dataKey="regular" name="FIRE" stroke="#C9A96E" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                  <Line type="monotone" dataKey="fat" name="Fat FIRE" stroke="#E07B6A" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                  {results[activeV].years < 60 && (
+                    <ReferenceLine x={age + Math.round(results[activeV].years)} stroke={VARIANTS[activeV].color} strokeDasharray="5 3" label={{ value: "FIRE", fill: VARIANTS[activeV].color, fontSize: 9 }} />
+                  )}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="card">
+              <div className="sl">FIRE Targets (healthcare-adjusted)</div>
+              {hcAdjustment > 0 && (
+                <div style={{ background: "rgba(224,123,106,0.07)", border: "1px solid rgba(224,123,106,0.2)", borderRadius: 4, padding: "0.5rem 0.65rem", marginBottom: "0.75rem", fontSize: "0.68rem" }}>
+                  <span style={{ color: "#E07B6A" }}>+{fmt(hcAdjustment)}</span>
+                  <span style={{ color: "var(--muted)" }}> added to each target as NPV of projected excess healthcare costs over 30-yr retirement. </span>
+                  <span style={{ color: "var(--muted2)" }}>See Healthcare tab for detail.</span>
+                </div>
+              )}
+              {Object.entries(VARIANTS).map(([k, v]) => {
+                const r = results[k];
+                return (
+                  <div key={k} style={{ marginBottom: "0.7rem", paddingBottom: "0.7rem", borderBottom: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.2rem" }}>
+                      <span style={{ fontSize: "0.7rem", color: v.color, textTransform: "uppercase", letterSpacing: "0.08em" }}>{v.label}</span>
+                      <span style={{ fontFamily: "var(--serif)", fontSize: "1rem" }}>{fmt(r.target)}</span>
+                    </div>
+                    <div style={{ fontSize: "0.6rem", color: "var(--muted2)", marginBottom: "0.25rem" }}>{fmt(r.annualSpend)}/yr spend · {swr}% SWR</div>
+                    <div className="bar"><div className="bar-fill" style={{ width: `${pct(savings, r.target)}%`, background: v.color }} /></div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="card">
+              <div className="sl">Budget by FIRE Target</div>
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", color: "var(--muted)", fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Category</th>
+                      <th style={{ textAlign: "right", color: "var(--muted)", fontSize: "0.6rem" }}>Your Budget</th>
+                      {["lean", "regular", "fat"].map(k => (
+                        <th key={k} style={{ textAlign: "right", color: VARIANTS[k].color, fontSize: "0.6rem", textTransform: "uppercase" }}>{VARIANTS[k].label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MONTHLY_CATS.map(c => {
+                      const v = (monthly[c.key] ?? 0) * 12;
+                      return (
+                        <tr key={c.key}>
+                          <td style={{ color: "var(--muted)", fontSize: "0.65rem" }}>{c.label}</td>
+                          <td style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem" }}>{fmt(v)}</td>
+                          {[0.6, 1.0, 1.6].map((m, i) => (
+                            <td key={i} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem", color: ["var(--green)", "var(--gold)", "#E07B6A"][i] }}>{fmt(v * m)}</td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                    <tr>
+                      <td style={{ color: "#E07B6A", fontSize: "0.65rem" }}>Health (today)</td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem" }}>{fmt(currentHealthAnnual)}</td>
+                      {[0.6, 1.0, 1.6].map((m, i) => (
+                        <td key={i} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem", color: "#E07B6A", fontStyle: "italic" }}>phase-adj.</td>
+                      ))}
+                    </tr>
+                    {ANNUAL_CATS.map(c => {
+                      const v = annual[c.key] ?? 0;
+                      return (
+                        <tr key={c.key}>
+                          <td style={{ color: "var(--muted)", fontSize: "0.65rem" }}>{c.label}</td>
+                          <td style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem" }}>{fmt(v)}</td>
+                          {[0.6, 1.0, 1.6].map((m, i) => (
+                            <td key={i} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem", color: ["var(--green)", "var(--gold)", "#E07B6A"][i] }}>{fmt(v * m)}</td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: "1px solid var(--muted2)" }}>
+                      <td style={{ color: "var(--muted)", fontSize: "0.65rem", textTransform: "uppercase", paddingTop: "0.45rem" }}>Total/yr</td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--serif)", paddingTop: "0.45rem" }}>{fmt(totalAnnual)}</td>
+                      {["lean", "regular", "fat"].map(k => (
+                        <td key={k} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.85rem", color: VARIANTS[k].color, paddingTop: "0.45rem" }}>{fmt(totalAnnual * VARIANTS[k].spendMult)}</td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td style={{ color: "var(--muted)", fontSize: "0.62rem", textTransform: "uppercase" }}>FIRE Target (HC-adj)</td>
+                      <td style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem" }}>{fmt(fireTargets.regular)}</td>
+                      {["lean", "regular", "fat"].map(k => (
+                        <td key={k} style={{ textAlign: "right", fontFamily: "var(--serif)", fontSize: "0.78rem", color: VARIANTS[k].color }}>{fmt(fireTargets[k])}</td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "Healthcare" && (
+          <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div className="card" style={{ borderColor: "rgba(224,123,106,0.3)" }}>
+              <div className="sl">{"Healthcare & Your FIRE Number"}</div>
+              <div style={{ fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.6, marginBottom: "0.85rem" }}>
+                Healthcare gets more expensive as you age — and pricier once you leave an employer plan. We estimate how much your health costs rise <em>above</em> normal inflation across retirement, then add that extra to your FIRE number so it isn't a surprise.
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", background: "rgba(224,123,106,0.07)", border: "1px solid rgba(224,123,106,0.2)", borderRadius: 6, padding: "0.7rem 0.85rem" }}>
+                <div>
+                  <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.09em" }}>Added to your FIRE target</div>
+                  <div style={{ fontSize: "0.58rem", color: "var(--muted2)", marginTop: "0.15rem" }}>Based on {fmt(healthMonthly)}/mo today, set on the Inputs tab</div>
+                </div>
+                <span style={{ fontFamily: "var(--serif)", fontSize: "1.5rem", color: "#E07B6A" }}>+{fmt(hcAdjustment)}</span>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="sl">The Three Phases</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {HC_PHASES.map(p => (
+                  <div key={p.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", background: "var(--surface2)", borderRadius: 5, padding: "0.55rem 0.7rem", borderLeft: `3px solid ${p.color}` }}>
+                    <div>
+                      <div style={{ fontSize: "0.72rem", color: p.color }}>{p.label}</div>
+                      <div style={{ fontSize: "0.6rem", color: "var(--muted2)" }}>Ages {p.ageRange}</div>
+                    </div>
+                    <span style={{ fontFamily: "var(--serif)", color: p.color, fontSize: "0.9rem" }}>~{fmt(p.baseMonthly)}/mo</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: "0.6rem", color: "var(--muted2)", marginTop: "0.6rem", lineHeight: 1.5 }}>
+                Pre-65 you buy private ACA coverage (the priciest stretch). Medicare starts at 65 and lowers costs. After 75, long-term-care risk pushes them back up. Change the starting point with "Health Insurance" on the Inputs tab.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "Scenarios" && (
+          <div className="fu" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div className="card">
+              <div className="sl">Pick a Retirement Age</div>
+              <Slider label="Target FIRE Age" value={targetAge} onChange={setTargetAge} min={age + 1} max={70} step={1} format={v => `${v}`} sub={`${targetYears} yrs from now · reach ${fmt(fireTargets.regular)} (HC-adjusted)`} />
+              <div className="g2" style={{ marginTop: "0.25rem" }}>
+                <div style={{ background: "var(--surface2)", borderRadius: 6, padding: "0.7rem", textAlign: "center" }}>
+                  <div style={{ fontSize: "0.59rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: "0.25rem" }}>Savings rate needed</div>
+                  <div style={{ fontFamily: "var(--serif)", fontSize: "1.4rem", color: reqSR == null ? "#E07B6A" : reqSR <= sr ? "var(--green)" : "var(--gold)" }}>{reqSR == null ? "—" : `${reqSR}%`}</div>
+                  <div style={{ fontSize: "0.58rem", color: "var(--muted2)", marginTop: "0.15rem" }}>{reqSR == null ? `out of reach by ${targetAge} at ${ret}% return` : `you're at ${sr}% now`}</div>
+                </div>
+                <div style={{ background: "var(--surface2)", borderRadius: 6, padding: "0.7rem", textAlign: "center" }}>
+                  <div style={{ fontSize: "0.59rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: "0.25rem" }}>Return needed</div>
+                  <div style={{ fontFamily: "var(--serif)", fontSize: "1.4rem", color: reqReturn == null ? "#E07B6A" : reqReturn <= ret ? "var(--green)" : "var(--gold)" }}>{reqReturn == null ? "—" : `${reqReturn}%`}</div>
+                  <div style={{ fontSize: "0.58rem", color: "var(--muted2)", marginTop: "0.15rem" }}>{reqReturn == null ? `out of reach by ${targetAge} at ${sr}% savings` : `you're at ${ret}% now · nominal`}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: "0.6rem", color: "var(--muted2)", marginTop: "0.6rem", lineHeight: 1.5 }}>
+                Each figure is what it would take on its own to hit your target age — holding everything else at your current Inputs.
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="sl">If You Change Your Savings Rate</div>
+              <div className="g3" style={{ gap: "0.4rem" }}>
+                {[20, 25, 30, 35, 40, 50].map(s => {
+                  const fa = fireAgeForSR(s);
+                  const hits = fa != null && fa <= targetAge;
+                  const cur = s === sr;
+                  return (
+                    <div key={s} style={{ background: cur ? "rgba(201,169,110,0.09)" : "var(--surface2)", border: cur ? "1px solid var(--gold)" : hits ? "1px solid rgba(126,184,164,0.4)" : "1px solid transparent", borderRadius: 6, padding: "0.55rem", textAlign: "center" }}>
+                      <div style={{ fontSize: "0.59rem", color: cur ? "var(--gold)" : "var(--muted)", textTransform: "uppercase", marginBottom: "0.15rem" }}>SR {s}%</div>
+                      <div style={{ fontFamily: "var(--serif)", fontSize: "1rem", color: hits ? "var(--green)" : "var(--text)" }}>{fa == null || fa > age + 60 ? "60+" : `age ${fa}`}</div>
+                      <div style={{ fontSize: "0.57rem", color: "var(--muted2)" }}>{fa == null ? "" : fa <= targetAge ? "on time" : `${fa - targetAge}y late`}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="sl">If Markets Return Differently</div>
+              <div className="g3" style={{ gap: "0.4rem" }}>
+                {[4, 5, 6, 7, 8, 9].map(r => {
+                  const fa = fireAgeForRet(r);
+                  const hits = fa != null && fa <= targetAge;
+                  const cur = r === Math.round(ret);
+                  return (
+                    <div key={r} style={{ background: cur ? "rgba(201,169,110,0.09)" : "var(--surface2)", border: cur ? "1px solid var(--gold)" : hits ? "1px solid rgba(126,184,164,0.4)" : "1px solid transparent", borderRadius: 6, padding: "0.55rem", textAlign: "center" }}>
+                      <div style={{ fontSize: "0.59rem", color: cur ? "var(--gold)" : "var(--muted)", textTransform: "uppercase", marginBottom: "0.15rem" }}>{r}% ret</div>
+                      <div style={{ fontFamily: "var(--serif)", fontSize: "1rem", color: hits ? "var(--green)" : "var(--text)" }}>{fa == null || fa > age + 60 ? "60+" : `age ${fa}`}</div>
+                      <div style={{ fontSize: "0.57rem", color: "var(--muted2)" }}>{fa == null ? "" : fa <= targetAge ? "on time" : `${fa - targetAge}y late`}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: "0.6rem", color: "var(--muted2)", marginTop: "0.6rem", lineHeight: 1.5 }}>Green = reaches your target age of {targetAge}. Returns are nominal; your inflation assumption ({inf}%) still applies.</div>
+            </div>
+          </div>
+        )}
+
+        {tab === "Cities" && (
+          <CitiesTab
+            savings={savings}
+            swr={swr}
+            fatAnnualHere={fatAnnualHere}
+            fatTargetHere={fatTargetHere}
+            yrsTo={yrsTo}
+            filteredCities={filteredCities}
+            cityRegion={cityRegion}
+            setCityRegion={setCityRegion}
+            citySort={citySort}
+            setCitySort={setCitySort}
+            totalAnnual={totalAnnual}
+            age={age}
+            income={income}
+            sr={sr}
+            geminiKey={geminiKey}
+          />
+        )}
+
+        {tab === "⚙" && <SettingsPanel geminiKey={geminiKey} setGeminiKey={setGeminiKey} />}
+
+      </div>
+    </div>
+  );
 }
 document.getElementById("loading").remove();
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, null));
