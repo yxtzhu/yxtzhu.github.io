@@ -145,11 +145,21 @@ const processPastDays = (healthState, allEntries, targets) => {
   let { score, dead, goodDayStreak, lastProcessedDate } = healthState;
   const today = todayKey();
 
+  // First run: anchor the baseline to yesterday so today stays live
+  // (uncommitted) while the first completed day still gets committed once the
+  // date rolls over. Without this, a null baseline keeps the cursor pinned to
+  // today, no day is ever processed, and the score is stuck at the default.
+  if (!lastProcessedDate) {
+    const prev = new Date(`${today}T00:00:00`);
+    prev.setDate(prev.getDate() - 1);
+    lastProcessedDate = dateKey(prev);
+  }
+
   const dates = [];
   // Parse YYYY-MM-DD as local midnight; bare "YYYY-MM-DD" is UTC, which
   // throws cursor.getDate() into the wrong day in negative-UTC timezones.
-  const cursor = new Date(`${lastProcessedDate || today}T00:00:00`);
-  if (lastProcessedDate) cursor.setDate(cursor.getDate() + 1);
+  const cursor = new Date(`${lastProcessedDate}T00:00:00`);
+  cursor.setDate(cursor.getDate() + 1);
   const todayDate = new Date(`${today}T00:00:00`);
 
   while (cursor < todayDate) {
