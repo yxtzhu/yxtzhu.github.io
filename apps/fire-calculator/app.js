@@ -487,7 +487,7 @@ Rules:
 - Be honest and specific — don't oversell or undersell
 Return ONLY the JSON array, no other text.`;
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${geminiKey}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -1138,9 +1138,9 @@ function SettingsPanel({
 function App() {
   const [tab, setTab] = useState("Inputs");
   const [age, setAge] = useState(32);
-  const [savings, setSavings] = useState(280000);
-  const [income, setIncome] = useState(180000);
-  const [sr, setSr] = useState(35);
+  const [savings, setSavings] = useState(0);
+  const [income, setIncome] = useState(0);
+  const [sr, setSr] = useState(0);
   const [partner, setPartner] = useState(0);
   const [psr, setPsr] = useState(0);
   const [ret, setRet] = useState(7);
@@ -1152,19 +1152,19 @@ function App() {
   const [citySort, setCitySort] = useState("cost");
   const [geminiKey, setGeminiKey] = useState("");
   const [monthly, setMonthly] = useState({
-    housing: 3000,
-    food: 1200,
-    transport: 600,
-    utilities: 300,
-    entertainment: 400,
-    clothing: 200,
-    other: 500
+    housing: 0,
+    food: 0,
+    transport: 0,
+    utilities: 0,
+    entertainment: 0,
+    clothing: 0,
+    other: 0
   });
-  const [healthMonthly, setHealthMonthly] = useState(500);
+  const [healthMonthly, setHealthMonthly] = useState(0);
   const [annual, setAnnual] = useState({
-    travel: 8000,
-    gifts: 2000,
-    misc: 3000
+    travel: 0,
+    gifts: 0,
+    misc: 0
   });
   const nonHealthAnnual = useMemo(() => {
     const mo = Object.values(monthly).reduce((a, b) => a + b, 0) * 12;
@@ -1307,27 +1307,33 @@ function App() {
     }
     return null;
   };
-  const reqSR = (() => {
-    for (let s = 0; s <= 100; s++) {
-      const c = income * (s / 100) * (1 - tax / 100) + partner * (psr / 100) * (1 - tax / 100);
-      let pv = savings;
-      for (let y = 0; y <= targetYears; y++) {
-        if (pv >= fireTargets.regular) return s;
-        pv = pv * (1 + realRet) + c;
-      }
-    }
-    return null;
-  })();
+  const scTarget = fireTargets.regular;
+  const scGrow = Math.pow(1 + realRet, targetYears);
+  const scAnnuity = Math.abs(realRet) < 1e-9 ? targetYears : (scGrow - 1) / realRet;
+  const partnerContrib = partner * (psr / 100) * (1 - tax / 100);
+  const incomeNet = income * (1 - tax / 100);
+  const needContribTotal = scAnnuity > 0 ? (scTarget - savings * scGrow) / scAnnuity : Infinity;
+  const reqContribMine = Math.max(0, needContribTotal - partnerContrib);
+  const reqSR = incomeNet > 0 ? needContribTotal <= 0 ? 0 : reqContribMine / incomeNet * 100 : null;
+  const needSavingsNow = scGrow > 0 ? (scTarget - contrib * scAnnuity) / scGrow : Infinity;
+  const extraNow = Math.max(0, needSavingsNow - savings);
   const reqReturn = (() => {
-    for (let r = 0; r <= 15.0001; r += 0.1) {
-      const rr = (r - inf) / 100;
-      let pv = savings;
-      for (let y = 0; y <= targetYears; y++) {
-        if (pv >= fireTargets.regular) return Math.round(r * 10) / 10;
-        pv = pv * (1 + rr) + contrib;
-      }
+    if (savings <= 0 && contrib <= 0) return null;
+    const fv = rNom => {
+      const rr = rNom - inf / 100;
+      const g = Math.pow(1 + rr, targetYears);
+      const af = Math.abs(rr) < 1e-9 ? targetYears : (g - 1) / rr;
+      return savings * g + contrib * af;
+    };
+    if (fv(0) >= scTarget) return 0;
+    if (fv(50) < scTarget) return Infinity;
+    let lo = 0,
+      hi = 50;
+    for (let k = 0; k < 80; k++) {
+      const mid = (lo + hi) / 2;
+      if (fv(mid) >= scTarget) hi = mid;else lo = mid;
     }
-    return null;
+    return hi * 100;
   })();
   return React.createElement("div", {
     style: {
@@ -1499,7 +1505,7 @@ function App() {
     label: "Savings Rate",
     value: sr,
     onChange: setSr,
-    min: 5,
+    min: 0,
     max: 70,
     step: 1,
     format: v => `${v}%`,
@@ -2265,15 +2271,15 @@ function App() {
     style: {
       fontFamily: "var(--serif)",
       fontSize: "1.4rem",
-      color: reqSR == null ? "#E07B6A" : reqSR <= sr ? "var(--green)" : "var(--gold)"
+      color: reqSR == null ? "var(--gold)" : reqSR === 0 ? "var(--green)" : reqSR <= sr ? "var(--green)" : reqSR <= 100 ? "var(--gold)" : "#E07B6A"
     }
-  }, reqSR == null ? "—" : `${reqSR}%`), React.createElement("div", {
+  }, reqSR == null ? fmt(reqContribMine) + "/yr" : reqSR === 0 ? "0%" : `${Math.round(reqSR)}%`), React.createElement("div", {
     style: {
       fontSize: "0.58rem",
       color: "var(--muted2)",
       marginTop: "0.15rem"
     }
-  }, reqSR == null ? `out of reach by ${targetAge} at ${ret}% return` : `you're at ${sr}% now`)), React.createElement("div", {
+  }, reqSR == null ? "enter income to see a rate" : reqSR === 0 ? "your savings already grow there" : reqSR > 100 ? `≈ ${fmt(reqContribMine)}/yr — more than you earn` : `≈ ${fmt(reqContribMine)}/yr · you're at ${sr}% now`)), React.createElement("div", {
     style: {
       background: "var(--surface2)",
       borderRadius: 6,
@@ -2292,22 +2298,37 @@ function App() {
     style: {
       fontFamily: "var(--serif)",
       fontSize: "1.4rem",
-      color: reqReturn == null ? "#E07B6A" : reqReturn <= ret ? "var(--green)" : "var(--gold)"
+      color: reqReturn == null || reqReturn === Infinity ? "#E07B6A" : reqReturn <= ret ? "var(--green)" : reqReturn <= 15 ? "var(--gold)" : "#E07B6A"
     }
-  }, reqReturn == null ? "—" : `${reqReturn}%`), React.createElement("div", {
+  }, reqReturn == null ? "—" : reqReturn === Infinity ? "none" : reqReturn >= 100 ? `${Math.round(reqReturn)}%` : `${reqReturn.toFixed(1)}%`), React.createElement("div", {
     style: {
       fontSize: "0.58rem",
       color: "var(--muted2)",
       marginTop: "0.15rem"
     }
-  }, reqReturn == null ? `out of reach by ${targetAge} at ${sr}% savings` : `you're at ${ret}% now · nominal`))), React.createElement("div", {
+  }, reqReturn == null ? "with $0 invested, returns can't help" : reqReturn === Infinity ? "no return is enough — must save more" : reqReturn <= 15 ? `nominal · you're at ${ret}% now` : `nominal · far above market norms`))), extraNow > 0 && isFinite(extraNow) && React.createElement("div", {
+    style: {
+      marginTop: "0.5rem",
+      padding: "0.45rem 0.6rem",
+      background: "rgba(201,169,110,0.07)",
+      border: "1px solid rgba(201,169,110,0.2)",
+      borderRadius: 4,
+      fontSize: "0.65rem",
+      color: "var(--muted)"
+    }
+  }, "Or invest ", React.createElement("span", {
+    style: {
+      color: "var(--gold)",
+      fontFamily: "var(--serif)"
+    }
+  }, fmt(extraNow)), " more today, on top of your current ", fmt(savings), "."), React.createElement("div", {
     style: {
       fontSize: "0.6rem",
       color: "var(--muted2)",
       marginTop: "0.6rem",
       lineHeight: 1.5
     }
-  }, "Each figure is what it would take on its own to hit your target age \u2014 holding everything else at your current Inputs.")), React.createElement("div", {
+  }, "Each figure is what it would take on its own to hit age ", targetAge, " \u2014 holding everything else at your current Inputs. For a year or two out, expect eye-watering numbers: that's the point.")), React.createElement("div", {
     className: "card"
   }, React.createElement("div", {
     className: "sl"
