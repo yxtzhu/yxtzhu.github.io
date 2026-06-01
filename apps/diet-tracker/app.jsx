@@ -848,6 +848,11 @@ const IMAGE_PROMPT = 'Estimate nutrition for ALL food visible in this image comb
 
 const buildTextPrompt = (text) => `Estimate nutrition for the food described below.\n\nUser description: "${text.replace(/"/g, '\\"')}"\n\nReason step-by-step:\n1. INTERPRET — figure out what was eaten and how much. If the description specifies a size or count (e.g. "12oz latte", "two slices"), use that exactly. If it's ambiguous (e.g. just "a latte" with no size), assume the most common typical serving for that item.\n2. COMPONENTS — list every distinct sub-item. For a drink, include milk/syrup separately if relevant. For a sandwich, list bread, fillings, spreads. For each component, estimate grams, then compute kcal and macros from standard nutritional data.\n3. TOTALS — sum across components. Top-level calories/protein_g/carbs_g/fat_g/fiber_g must equal the component sums.\n4. UNCERTAINTY — name the single assumption most likely to be wrong (e.g. "assumed whole milk — could swing ±50 kcal if oat/skim", "portion size not specified") in biggest_uncertainty.\n\nSet serving_assumption to "as_described" if you used the exact amount the user stated, or "typical_serving" if you assumed a common portion because the description was vague. Set scale_reference to a short note on what you assumed (e.g. "typical 12oz latte", "as stated: 2 slices").\n\nReturn ONLY a JSON object, no markdown, no backticks:\n{"dish":"name","description":"one sentence","scale_reference":"what you assumed","components":[{"name":"item","grams":0,"kcal":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0}],"total_grams":0,"serving_assumption":"as_described|typical_serving|other","confidence":"high|medium|low","calories":0,"protein_g":0,"carbs_g":0,"fat_g":0,"fiber_g":0,"biggest_uncertainty":"what to verify","notes":"caveats"}`;
 
+// Wraps a user correction as a follow-up turn. The original prompt, image, and
+// the model's first answer stay in the conversation, so the model revises its
+// estimate in place rather than starting from scratch.
+const buildFollowupPrompt = (text) => `The user reviewed your estimate and wants to correct or clarify something:\n\n"${text.replace(/"/g, '\\"')}"\n\nUpdate your estimate to account for this. Re-reason about scale, components, and totals wherever the correction affects them, and keep everything else consistent with your previous answer. Apply the same rules as before (component sums must equal the top-level totals).\n\nReturn ONLY the same JSON object as before — no markdown, no backticks.`;
+
 // Analyze modal — handles both image and text-described meals. Pass either
 // `image` (a data URL) or `text` (a user-typed description), not both.
 const AnalyzeModal = ({ image, text, apiKey, onLog, onClose }) => {
@@ -856,46 +861,76 @@ const AnalyzeModal = ({ image, text, apiKey, onLog, onClose }) => {
   const [error, setError] = useState("");
   const [edited, setEdited] = useState(null);
   const [portion, setPortion] = useState(1);
+  const [convo, setConvo] = useState(null);       // multi-turn history, kept for follow-up corrections
+  const [followup, setFollowup] = useState("");   // the user's correction text
+  const [showFollowup, setShowFollowup] = useState(false);
+  const [refining, setRefining] = useState(false);
+
+  const callGemini = async (contents) => {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents, generationConfig: { temperature: 0.1 } })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return (data.candidates?.[0]?.content?.parts?.[0]?.text || "").replace(/```json|```/g, "").trim();
+  };
+
+  // Normalize the model's JSON into the shape the UI uses. Top-level totals are
+  // derived from component sums so the breakdown and the Calories/macro fields
+  // always agree — the model is asked to keep them equal but frequently doesn't.
+  const buildResult = (p) => {
+    const components = Array.isArray(p.components) ? p.components.map(c => ({
+      name: c.name || "item",
+      grams: Math.round(c.grams || 0),
+      kcal: Math.round(c.kcal || 0),
+      protein: Math.round(c.protein_g || 0),
+      carbs: Math.round(c.carbs_g || 0),
+      fat: Math.round(c.fat_g || 0),
+      fiber: Math.round(c.fiber_g || 0),
+    })) : [];
+    const sum = k => components.reduce((a, c) => a + (c[k] || 0), 0);
+    const hasComponents = components.length > 0;
+    return { dish: p.dish || "Unknown", description: p.description || "", confidence: p.confidence || "medium", serving_assumption: p.serving_assumption || "unknown", scale_reference: p.scale_reference || "", components, biggest_uncertainty: p.biggest_uncertainty || "", total_grams: hasComponents ? sum("grams") : Math.round(p.total_grams || 0), calories: hasComponents ? sum("kcal") : Math.round(p.calories || 0), protein: hasComponents ? sum("protein") : Math.round(p.protein_g || 0), carbs: hasComponents ? sum("carbs") : Math.round(p.carbs_g || 0), fat: hasComponents ? sum("fat") : Math.round(p.fat_g || 0), fiber: hasComponents ? sum("fiber") : Math.round(p.fiber_g || 0), notes: p.notes || "" };
+  };
 
   const analyze = async () => {
     setStatus("analyzing"); setError("");
     if (!apiKey) { setError("No API key. Open ⚙ Settings to add your Gemini key."); setStatus("error"); return; }
     try {
-      const parts = image
+      const userParts = image
         ? [
             { text: IMAGE_PROMPT },
             { inline_data: { mime_type: image.split(";")[0].split(":")[1], data: image.split(",")[1] } },
           ]
         : [{ text: buildTextPrompt(text) }];
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: { temperature: 0.1 }
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text || "").replace(/```json|```/g, "").trim();
-      const p = JSON.parse(raw);
-      const components = Array.isArray(p.components) ? p.components.map(c => ({
-        name: c.name || "item",
-        grams: Math.round(c.grams || 0),
-        kcal: Math.round(c.kcal || 0),
-        protein: Math.round(c.protein_g || 0),
-        carbs: Math.round(c.carbs_g || 0),
-        fat: Math.round(c.fat_g || 0),
-        fiber: Math.round(c.fiber_g || 0),
-      })) : [];
-      // Derive top-level totals from component sums so the breakdown and the
-      // Calories/macro fields always agree. The model is asked to keep them
-      // equal but frequently returns mismatched figures.
-      const sum = k => components.reduce((a, c) => a + (c[k] || 0), 0);
-      const hasComponents = components.length > 0;
-      const r = { dish: p.dish || "Unknown", description: p.description || "", confidence: p.confidence || "medium", serving_assumption: p.serving_assumption || "unknown", scale_reference: p.scale_reference || "", components, biggest_uncertainty: p.biggest_uncertainty || "", total_grams: hasComponents ? sum("grams") : Math.round(p.total_grams || 0), calories: hasComponents ? sum("kcal") : Math.round(p.calories || 0), protein: hasComponents ? sum("protein") : Math.round(p.protein_g || 0), carbs: hasComponents ? sum("carbs") : Math.round(p.carbs_g || 0), fat: hasComponents ? sum("fat") : Math.round(p.fat_g || 0), fiber: hasComponents ? sum("fiber") : Math.round(p.fiber_g || 0), notes: p.notes || "" };
-      setResult(r); setEdited(r); setPortion(1); setStatus("done");
+      const respText = await callGemini([{ role: "user", parts: userParts }]);
+      const r = buildResult(JSON.parse(respText));
+      setResult(r); setEdited(r); setPortion(1);
+      // Keep the turn history so a follow-up correction can be sent as a
+      // multi-turn conversation (image/prompt + first answer + the user's note).
+      setConvo([{ role: "user", parts: userParts }, { role: "model", parts: [{ text: respText }] }]);
+      setStatus("done");
     } catch (e) { setError(e.message || "Analysis failed."); setStatus("error"); }
+  };
+
+  // Send the user's correction as another turn and replace the estimate with
+  // the revised one. The image and first answer stay in the history so the
+  // model refines rather than re-analyzing from scratch.
+  const refine = async () => {
+    const msg = followup.trim();
+    if (!msg || !convo || refining) return;
+    setRefining(true); setError("");
+    try {
+      const contents = [...convo, { role: "user", parts: [{ text: buildFollowupPrompt(msg) }] }];
+      const respText = await callGemini(contents);
+      const r = buildResult(JSON.parse(respText));
+      setResult(r); setEdited(r); setPortion(1);
+      setConvo([...contents, { role: "model", parts: [{ text: respText }] }]);
+      setFollowup(""); setShowFollowup(false);
+    } catch (e) { setError(e.message || "Couldn't revise the estimate. Try again."); }
+    finally { setRefining(false); }
   };
 
   useEffect(() => { analyze(); }, []);
@@ -1003,6 +1038,27 @@ const AnalyzeModal = ({ image, text, apiKey, onLog, onClose }) => {
             </div>
           </div>
           {result.notes && <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#6b6059", fontStyle: "italic", marginBottom: 14, padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>{result.notes}</div>}
+          {/* Follow-up correction — let the user tell Gemini what it got wrong
+              and re-estimate, before logging. */}
+          <div style={{ marginBottom: 14 }}>
+            {!showFollowup ? (
+              <button onClick={() => { setShowFollowup(true); setError(""); }} style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "11px", color: "#9a8f84", fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer" }}>↳ Not quite right? Tell Gemini</button>
+            ) : (
+              <div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9a8f84", marginBottom: 8 }}>Correct the estimate</div>
+                <textarea value={followup} onChange={e => setFollowup(e.target.value)} disabled={refining} rows={2}
+                  placeholder="e.g. the chicken is fried, not grilled · there's about 2 cups of rice · add a tablespoon of olive oil"
+                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 12px", color: "#f0e8df", fontFamily: "'DM Sans', sans-serif", fontSize: 13, lineHeight: 1.45, resize: "vertical", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+                {error && <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#e07a5f", marginBottom: 8 }}>{error}</div>}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={refine} disabled={refining || !followup.trim()}
+                    style={{ flex: 1, background: refining || !followup.trim() ? "rgba(200,149,108,0.4)" : "#c8956c", border: "none", borderRadius: 8, padding: "11px", color: "#1e1a17", fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", cursor: refining || !followup.trim() ? "default" : "pointer", fontWeight: 700 }}>{refining ? "Re-estimating…" : "Re-estimate"}</button>
+                  <button onClick={() => { setShowFollowup(false); setFollowup(""); setError(""); }} disabled={refining}
+                    style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "11px 16px", color: "#9a8f84", fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", cursor: refining ? "default" : "pointer" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => onLog({ ...edited, portion })} style={{ flex: 1, background: "#c8956c", border: "none", borderRadius: 10, padding: "13px", color: "#1e1a17", fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Log Entry</button>
             <button onClick={onClose} style={{ flex: 1, background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "13px", color: "#9a8f84", fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer" }}>Discard</button>
