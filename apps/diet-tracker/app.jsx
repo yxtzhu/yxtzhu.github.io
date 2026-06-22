@@ -131,6 +131,7 @@ const resizeImage = (dataUrl, maxDim = 240, quality = 0.55) => new Promise(resol
 const HEALTH_DEFAULTS = { score: 100, dead: false, goodDayStreak: 0, lastProcessedDate: null };
 
 const getDayDelta = (pct, currentHealth) => {
+  if (pct === 0)                   return -8;  // nothing logged — neglect penalty
   if (pct >= 0.85 && pct <= 1.05) return currentHealth < 40 ? 4 : 8;
   if (pct >= 0.70 && pct < 0.85)  return 3;
   if (pct >= 0.50 && pct < 0.70)  return 0;
