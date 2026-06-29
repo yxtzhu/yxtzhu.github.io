@@ -1076,6 +1076,161 @@ const AnalyzeModal = ({ image, text, apiKey, onLog, onClose }) => {
   );
 };
 
+// Gallery view — grid of all food photos with on-demand Gemini stylization
+const GalleryView = ({ allEntries, apiKey, onUpdateEntry }) => {
+  const [stylizing, setStylizing] = useState({});
+
+  const allPhotos = Object.entries(allEntries)
+    .flatMap(([dateStr, entries]) =>
+      (entries || []).filter(e => e.image).map(e => ({ ...e, dateStr }))
+    )
+    .sort((a, b) => b.id - a.id);
+
+  const stylizeEntry = async (entry) => {
+    if (!apiKey || stylizing[entry.id]) return;
+    setStylizing(s => ({ ...s, [entry.id]: true }));
+    try {
+      const mimeType = entry.image.startsWith("data:")
+        ? entry.image.split(";")[0].split(":")[1]
+        : "image/jpeg";
+      const base64 = entry.image.includes(",") ? entry.image.split(",")[1] : entry.image;
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              role: "user",
+              parts: [
+                { text: "Transform this food photo into a beautiful Studio Ghibli-style watercolor illustration. Use soft warm tones, gentle painterly textures, and make the food look cozy and appetizing. Keep the food items and composition recognizable." },
+                { inline_data: { mime_type: mimeType, data: base64 } }
+              ]
+            }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] }
+          })
+        }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const imgPart = parts.find(p => p.inline_data?.data);
+      if (!imgPart) throw new Error("No image in response");
+      const rawDataUrl = `data:${imgPart.inline_data.mime_type};base64,${imgPart.inline_data.data}`;
+      const styledImage = await resizeImage(rawDataUrl, 480, 0.85);
+      onUpdateEntry(entry.dateStr, entry.id, { styledImage: styledImage || rawDataUrl });
+    } catch (err) {
+      console.error("Stylization failed:", err.message);
+    } finally {
+      setStylizing(s => ({ ...s, [entry.id]: false }));
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    const today = todayKey();
+    const d2 = new Date(); d2.setDate(d2.getDate() - 1);
+    const yesterday = dateKey(d2);
+    if (dateStr === today) return "Today";
+    if (dateStr === yesterday) return "Yesterday";
+    return new Date(dateStr + "T00:00:00").toLocaleDateString([], { month: "short", day: "numeric" });
+  };
+
+  if (!allPhotos.length) return (
+    <div style={{ paddingBottom: 80, textAlign: "center", paddingTop: 60 }}>
+      <div style={{ fontSize: 36, marginBottom: 12 }}>📷</div>
+      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#6b6059", lineHeight: 1.6 }}>
+        No food photos yet.<br />Log meals with photos to build your gallery.
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ paddingBottom: 80 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          {allPhotos.length} {allPhotos.length === 1 ? "photo" : "photos"}
+        </div>
+        {!apiKey && (
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#4a413a" }}>
+            Add API key in ⚙ to stylize
+          </div>
+        )}
+        {apiKey && (
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#4a413a" }}>
+            ✦ to paint with Gemini
+          </div>
+        )}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+        {allPhotos.map(entry => {
+          const isStylizing = !!stylizing[entry.id];
+          const hasStyled = !!entry.styledImage;
+          const displayImg = entry.styledImage || entry.image;
+          return (
+            <div key={entry.id} style={{ position: "relative", borderRadius: 10, overflow: "hidden", aspectRatio: "1", background: "rgba(255,255,255,0.04)" }}>
+              <img src={displayImg} alt={entry.dish || ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <div style={{
+                position: "absolute", bottom: 0, left: 0, right: 0,
+                background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
+                padding: "20px 6px 5px",
+              }}>
+                {entry.dish && (
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, color: "#f0e8df", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {entry.dish}
+                  </div>
+                )}
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 8, color: "rgba(240,232,223,0.5)" }}>
+                  {formatDate(entry.dateStr)}
+                </div>
+              </div>
+              {apiKey && !hasStyled && (
+                <button
+                  onClick={() => stylizeEntry(entry)}
+                  disabled={isStylizing}
+                  title="Paint with Gemini"
+                  style={{
+                    position: "absolute", top: 5, right: 5,
+                    background: "rgba(24,20,17,0.75)",
+                    border: "1px solid rgba(200,149,108,0.5)",
+                    borderRadius: 7, width: 26, height: 26,
+                    cursor: isStylizing ? "not-allowed" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, color: "#c8956c", lineHeight: 1,
+                  }}
+                >✦</button>
+              )}
+              {hasStyled && (
+                <button
+                  onClick={() => onUpdateEntry(entry.dateStr, entry.id, { styledImage: null })}
+                  title="Revert to original photo"
+                  style={{
+                    position: "absolute", top: 5, right: 5,
+                    background: "rgba(24,20,17,0.75)",
+                    border: "1px solid rgba(126,184,164,0.5)",
+                    borderRadius: 7, width: 26, height: 26,
+                    cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, color: "#7eb8a4", lineHeight: 1,
+                  }}
+                >↩</button>
+              )}
+              {isStylizing && (
+                <div style={{
+                  position: "absolute", inset: 0,
+                  background: "rgba(18,15,13,0.65)",
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
+                }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 12, color: "#c8956c", letterSpacing: "0.12em" }}>Painting…</div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 // App
 function App() {
   const [apiKey, setApiKey] = useState(() => load(STORAGE.key, ""));
@@ -1323,6 +1478,17 @@ function App() {
 
   const handleDelete = (id) => saveEntries(entries.filter(e => e.id !== id));
   const handleSaveEdit = (updated) => { saveEntries(entries.map(e => e.id === updated.id ? { ...e, ...updated } : e)); setEditingEntry(null); };
+
+  const handleUpdateEntry = (dateStr, entryId, updates) => {
+    if (!entriesLoadedRef.current) return;
+    const dayEntries = (allEntries[dateStr] || []).map(e => {
+      if (e.id !== entryId) return e;
+      const merged = { ...e, ...updates };
+      if (merged.styledImage === null) delete merged.styledImage;
+      return merged;
+    });
+    persistAllEntries({ ...allEntries, [dateStr]: dayEntries });
+  };
   const remaining = targets.calories - totals.calories;
 
   return (
@@ -1340,7 +1506,7 @@ function App() {
 
       <div style={{ padding: "22px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 600, color: "#f0e8df", lineHeight: 1 }}>{tab === "today" ? "Today" : "History"}</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 600, color: "#f0e8df", lineHeight: 1 }}>{tab === "today" ? "Today" : tab === "calendar" ? "History" : "Gallery"}</div>
           <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#6b6059", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 4 }}>
             {new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
           </div>
@@ -1349,7 +1515,7 @@ function App() {
       </div>
 
       <div style={{ display: "flex", gap: 2, padding: "14px 20px 0" }}>
-        {[["today","Today"],["calendar","Calendar"]].map(([id, label]) => (
+        {[["today","Today"],["calendar","Calendar"],["gallery","Gallery"]].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
             fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase",
             padding: "7px 16px", borderRadius: 8, border: "none", cursor: "pointer",
@@ -1421,6 +1587,7 @@ function App() {
           )}
         </>)}
         {tab === "calendar" && <CalendarView allEntries={allEntries} targets={targets} onSelectDay={setSelectedDay} />}
+        {tab === "gallery" && <GalleryView allEntries={allEntries} apiKey={apiKey} onUpdateEntry={handleUpdateEntry} />}
       </div>
 
       {tab === "today" && (<>
