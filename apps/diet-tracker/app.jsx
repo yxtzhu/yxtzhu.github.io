@@ -1079,6 +1079,7 @@ const AnalyzeModal = ({ image, text, apiKey, onLog, onClose }) => {
 // Gallery view — grid of all food photos with on-demand Gemini stylization
 const GalleryView = ({ allEntries, apiKey, onUpdateEntry }) => {
   const [stylizing, setStylizing] = useState({});
+  const [errors, setErrors] = useState({});
 
   const allPhotos = Object.entries(allEntries)
     .flatMap(([dateStr, entries]) =>
@@ -1089,13 +1090,14 @@ const GalleryView = ({ allEntries, apiKey, onUpdateEntry }) => {
   const stylizeEntry = async (entry) => {
     if (!apiKey || stylizing[entry.id]) return;
     setStylizing(s => ({ ...s, [entry.id]: true }));
+    setErrors(e => ({ ...e, [entry.id]: null }));
     try {
       const mimeType = entry.image.startsWith("data:")
         ? entry.image.split(";")[0].split(":")[1]
         : "image/jpeg";
       const base64 = entry.image.includes(",") ? entry.image.split(",")[1] : entry.image;
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1115,12 +1117,12 @@ const GalleryView = ({ allEntries, apiKey, onUpdateEntry }) => {
       if (data.error) throw new Error(data.error.message);
       const parts = data.candidates?.[0]?.content?.parts || [];
       const imgPart = parts.find(p => p.inline_data?.data);
-      if (!imgPart) throw new Error("No image in response");
+      if (!imgPart) throw new Error("No image returned — try again");
       const rawDataUrl = `data:${imgPart.inline_data.mime_type};base64,${imgPart.inline_data.data}`;
       const styledImage = await resizeImage(rawDataUrl, 480, 0.85);
       onUpdateEntry(entry.dateStr, entry.id, { styledImage: styledImage || rawDataUrl });
     } catch (err) {
-      console.error("Stylization failed:", err.message);
+      setErrors(e => ({ ...e, [entry.id]: err.message || "Failed" }));
     } finally {
       setStylizing(s => ({ ...s, [entry.id]: false }));
     }
@@ -1165,6 +1167,7 @@ const GalleryView = ({ allEntries, apiKey, onUpdateEntry }) => {
         {allPhotos.map(entry => {
           const isStylizing = !!stylizing[entry.id];
           const hasStyled = !!entry.styledImage;
+          const entryError = errors[entry.id];
           const displayImg = entry.styledImage || entry.image;
           return (
             <div key={entry.id} style={{ position: "relative", borderRadius: 10, overflow: "hidden", aspectRatio: "1", background: "rgba(255,255,255,0.04)" }}>
@@ -1187,17 +1190,17 @@ const GalleryView = ({ allEntries, apiKey, onUpdateEntry }) => {
                 <button
                   onClick={() => stylizeEntry(entry)}
                   disabled={isStylizing}
-                  title="Paint with Gemini"
+                  title={entryError ? `Error: ${entryError} — tap to retry` : "Paint with Gemini"}
                   style={{
                     position: "absolute", top: 5, right: 5,
-                    background: "rgba(24,20,17,0.75)",
-                    border: "1px solid rgba(200,149,108,0.5)",
+                    background: entryError ? "rgba(224,122,95,0.85)" : "rgba(24,20,17,0.75)",
+                    border: `1px solid ${entryError ? "rgba(224,122,95,0.7)" : "rgba(200,149,108,0.5)"}`,
                     borderRadius: 7, width: 26, height: 26,
                     cursor: isStylizing ? "not-allowed" : "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 12, color: "#c8956c", lineHeight: 1,
+                    fontSize: 12, color: entryError ? "#fff" : "#c8956c", lineHeight: 1,
                   }}
-                >✦</button>
+                >{entryError ? "!" : "✦"}</button>
               )}
               {hasStyled && (
                 <button
@@ -1221,6 +1224,17 @@ const GalleryView = ({ allEntries, apiKey, onUpdateEntry }) => {
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
                 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 12, color: "#c8956c", letterSpacing: "0.12em" }}>Painting…</div>
+                </div>
+              )}
+              {entryError && !isStylizing && (
+                <div style={{
+                  position: "absolute", bottom: 0, left: 0, right: 0,
+                  background: "rgba(18,10,10,0.88)",
+                  padding: "5px 6px",
+                }}>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 8, color: "#e07a5f", lineHeight: 1.3, wordBreak: "break-word" }}>
+                    {entryError}
+                  </div>
                 </div>
               )}
             </div>
