@@ -425,6 +425,34 @@ const MacroBar = ({ label, value, target, color }) => {
   );
 };
 
+// % of calories coming from protein/carbs/fat (4/4/9 kcal per gram)
+const MacroPercentBreakdown = ({ protein, carbs, fat }) => {
+  const pCal = protein * 4, cCal = carbs * 4, fCal = fat * 9;
+  const total = pCal + cCal + fCal;
+  if (!total) return null;
+  const segments = [
+    { label: "Protein", cal: pCal, color: "#7eb8a4" },
+    { label: "Carbs",   cal: cCal, color: "#c8956c" },
+    { label: "Fat",     cal: fCal, color: "#d4a0b5" },
+  ];
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", background: "rgba(255,255,255,0.06)" }}>
+        {segments.map(s => s.cal > 0 && (
+          <div key={s.label} style={{ width: `${(s.cal / total) * 100}%`, background: s.color }} />
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 6 }}>
+        {segments.map(s => (
+          <span key={s.label} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#9a8f84" }}>
+            <span style={{ color: s.color, fontWeight: 600 }}>{Math.round((s.cal / total) * 100)}%</span> {s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // Calorie ring
 const CalorieRing = ({ consumed, target }) => {
   const pct = Math.min(consumed / (target || 1), 1);
@@ -654,7 +682,8 @@ const DayDetailModal = ({ dateKey, entries, targets, onMoveEntry, onClose }) => 
                   <MacroBar label="Fiber"   value={totals.fiber}   target={targets.fiber}   color="#8fa8c8" />
                 </div>
               </div>
-              <div style={{ textAlign: "center", paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+              <MacroPercentBreakdown protein={totals.protein} carbs={totals.carbs} fat={totals.fat} />
+              <div style={{ textAlign: "center", paddingTop: 10, marginTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                 <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: remaining >= 0 ? "#9a8f84" : "#e07a5f" }}>
                   {remaining >= 0 ? `${remaining} kcal under target` : `${Math.abs(remaining)} kcal over target`}
                 </span>
@@ -1578,7 +1607,8 @@ function App() {
                 <MacroBar label="Fiber"   value={totals.fiber}   target={targets.fiber}   color="#8fa8c8" />
               </div>
             </div>
-            <div style={{ textAlign: "center", paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+            <MacroPercentBreakdown protein={totals.protein} carbs={totals.carbs} fat={totals.fat} />
+            <div style={{ textAlign: "center", paddingTop: 10, marginTop: 10, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
               <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: remaining >= 0 ? "#9a8f84" : "#e07a5f" }}>
                 {remaining >= 0 ? `${remaining} kcal remaining` : `${Math.abs(remaining)} kcal over target`}
               </span>
