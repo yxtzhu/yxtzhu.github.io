@@ -350,9 +350,9 @@
 
     // ── Tiers ──────────────────────────────────────────────────────────────
     const TIERS = [
-      { id: 's', step: 3,  label: 'Every 3',  band: 'Under $50',   fits: p => p < 50 },
-      { id: 'm', step: 5,  label: 'Every 5',  band: 'Under $150',  fits: p => p < 150 },
-      { id: 'l', step: 10, label: 'Every 10', band: '$150 and up', fits: p => p >= 150 },
+      { id: 's', step: 3,  label: 'Every 3',  band: '$50 and under',  fits: p => p <= 50 },
+      { id: 'm', step: 5,  label: 'Every 5',  band: '$150 and under', fits: p => p <= 150 },
+      { id: 'l', step: 10, label: 'Every 10', band: 'Over $150',      fits: p => p > 150 },
     ];
     // Reaching the target itself is a fourth, single milestone: it unlocks the
     // most expensive item on the list, whatever its band. Like everything
