@@ -106,6 +106,7 @@
     .item .n .plain { border-bottom: 0; }
     .item .p { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 2px; }
     .item .r { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .star { color: var(--gold); font-size: 14px; line-height: 1; }
     .band { border: 1px solid rgba(199, 155, 77, 0.55); color: var(--gold); font-size: 10px; padding: 2px 6px; border-radius: 2px; white-space: nowrap; }
     .x { color: var(--dim); font-size: 18px; line-height: 1; padding: 4px 6px; }
     .empty { color: var(--dim); font-size: 13px; padding: 8px 2px; }
@@ -459,12 +460,15 @@
       if (typeof s.targetWeight === 'number') {
         const sec = el('section', 'tier');
         const hd = el('div', 'hd');
-        hd.append(el('div', 'eyebrow', 'At target'), el('span', null, TARGET.band));
+        hd.append(el('div', 'eyebrow', 'Target'), el('span', null, `★ ${TARGET.band}`));
         const chips = el('div', 'chips');
         const claimedId = s.claims[TARGET_KEY];
         const item = claimedId ? s.wishlist.find(i => i.id === claimedId) : null;
         const chip = el('button', 'chip'); chip.type = 'button';
-        chip.append(el('b', null, `${one(s.targetWeight)} ${unit}`));
+        // Same unit as the other chips: pounds to lose, not the weight itself.
+        const toLose = m.start != null ? m.start - s.targetWeight : null;
+        chip.append(el('b', null, toLose != null ? `${one(Math.max(0, toLose))} ${unit}` : `${one(s.targetWeight)} ${unit}`));
+        chip.title = `Target ${one(s.targetWeight)} ${unit}`;
         if (item) {
           chip.classList.add('claimed'); chip.append(el('small', null, item.name));
           chip.setAttribute('aria-label', `Target reached, claimed for ${item.name}. Tap to unclaim.`);
@@ -485,6 +489,10 @@
       items.replaceChildren();
       const claimedIds = new Set(Object.values(s.claims));
       const sorted = [...s.wishlist].sort((a, b) => (bandOf(a.price).step - bandOf(b.price).step) || (a.price - b.price));
+      // The star marks the target prize: what the target chip would claim
+      // right now, or what it already did. Ties go to the earlier item.
+      const targetItemId = s.claims[TARGET_KEY]
+        || s.wishlist.filter(i => !claimedIds.has(i.id)).reduce((best, i) => (!best || i.price > best.price) ? i : best, null)?.id;
       if (!sorted.length) items.append(el('div', 'empty', 'Nothing here yet. Paste a link below when you want something.'));
       for (const it of sorted) {
         const row = el('div', 'item');
@@ -495,6 +503,10 @@
         if (claimedIds.has(it.id)) { const g = el('span', 'gold', ' · earned'); p.append(g); }
         n.append(p);
         const r = el('div', 'r');
+        if (typeof s.targetWeight === 'number' && it.id === targetItemId) {
+          const star = el('span', 'star', '★'); star.setAttribute('aria-label', 'Target prize'); star.title = 'Target prize';
+          r.append(star);
+        }
         r.append(el('span', 'band', `${bandOf(it.price).step} ${unit}`));
         const x = el('button', 'x', '×'); x.type = 'button'; x.setAttribute('aria-label', `Remove ${it.name}`);
         x.addEventListener('click', () => {
