@@ -354,6 +354,12 @@
       { id: 'm', step: 5,  label: 'Every 5',  band: 'Under $150',  fits: p => p < 150 },
       { id: 'l', step: 10, label: 'Every 10', band: '$150 and up', fits: p => p >= 150 },
     ];
+    // Reaching the target itself is a fourth, single milestone: it unlocks the
+    // most expensive item on the list, whatever its band. Like everything
+    // else it reads off the best average ever reached, so it ratchets too.
+    const TARGET = { id: 't', band: 'Your most expensive item', fits: () => true };
+    const TARGET_KEY = 't-1';
+    const targetReached = (s, m) => typeof s.targetWeight === 'number' && m.bestAvg != null && m.bestAvg <= s.targetWeight;
     const spanOf = s => (typeof s.startWeight === 'number' && typeof s.targetWeight === 'number') ? s.startWeight - s.targetWeight : 30;
     const tierMax = (tier, span) => Math.max(1, Math.floor(span / tier.step));
     const earnedCount = (tier, loss, span) => Math.min(Math.floor(loss / tier.step), tierMax(tier, span));
@@ -403,12 +409,13 @@
         const n = earnedCount(t, m.loss, span);
         for (let i = 1; i <= n; i++) if (!s.claims[`${t.id}-${i}`]) return true;
         return false;
-      });
+      }) || (targetReached(s, m) && !s.claims[TARGET_KEY]);
       const next = nextMilestone(m.loss, span);
       const nextBtn = $('nextLine');
       if (!m.entries.length) { nextBtn.textContent = 'Log a few weigh-ins and this starts moving.'; nextBtn.disabled = true; }
       else if (earnedUnclaimed) { nextBtn.textContent = 'A reward is waiting to be claimed'; nextBtn.disabled = false; }
       else if (next) { nextBtn.textContent = `${one(next.away)} ${unit} to your next reward · ${next.tier.band}`; nextBtn.disabled = false; }
+      else if (typeof s.targetWeight === 'number' && !targetReached(s, m)) { nextBtn.textContent = `${one(m.bestAvg - s.targetWeight)} ${unit} to target · ${TARGET.band}`; nextBtn.disabled = false; }
       else { nextBtn.textContent = 'Every milestone to target is earned.'; nextBtn.disabled = true; }
 
       renderChart(m, unit);
@@ -446,6 +453,29 @@
           }
           chips.append(chip);
         }
+        sec.append(hd, chips);
+        tiers.append(sec);
+      }
+      if (typeof s.targetWeight === 'number') {
+        const sec = el('section', 'tier');
+        const hd = el('div', 'hd');
+        hd.append(el('div', 'eyebrow', 'At target'), el('span', null, TARGET.band));
+        const chips = el('div', 'chips');
+        const claimedId = s.claims[TARGET_KEY];
+        const item = claimedId ? s.wishlist.find(i => i.id === claimedId) : null;
+        const chip = el('button', 'chip'); chip.type = 'button';
+        chip.append(el('b', null, `${one(s.targetWeight)} ${unit}`));
+        if (item) {
+          chip.classList.add('claimed'); chip.append(el('small', null, item.name));
+          chip.setAttribute('aria-label', `Target reached, claimed for ${item.name}. Tap to unclaim.`);
+          chip.addEventListener('click', () => { delete s.claims[TARGET_KEY]; save(); render(); });
+        } else if (targetReached(s, m)) {
+          chip.classList.add('earned'); chip.append(el('small', null, 'Claim'));
+          chip.addEventListener('click', () => openClaim(TARGET, TARGET_KEY));
+        } else {
+          chip.disabled = true; chip.append(el('small', null, ''));
+        }
+        chips.append(chip);
         sec.append(hd, chips);
         tiers.append(sec);
       }
@@ -549,8 +579,9 @@
       const list = $('claimList');
       list.replaceChildren();
       const claimedIds = new Set(Object.values(state.claims));
-      const options = state.wishlist.filter(i => !claimedIds.has(i.id) && tier.fits(i.price)).sort((a, b) => a.price - b.price);
-      if (!options.length) list.append(el('div', 'empty', 'Nothing on your list in this band yet.'));
+      let options = state.wishlist.filter(i => !claimedIds.has(i.id) && tier.fits(i.price)).sort((a, b) => a.price - b.price);
+      if (tier === TARGET) options = options.slice(-1);
+      if (!options.length) list.append(el('div', 'empty', tier === TARGET ? 'Nothing on your list yet.' : 'Nothing on your list in this band yet.'));
       for (const it of options) {
         const b = el('button'); b.type = 'button';
         b.append(el('span', null, it.name), el('span', null, money(it.price)));
