@@ -1,0 +1,15 @@
+{
+  "name": "Milestones",
+  "short_name": "Milestones",
+  "description": "Weight-loss milestones that unlock rewards from your wishlist.",
+  "start_url": "/apps/milestones/",
+  "scope": "/apps/milestones/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#151110",
+  "theme_color": "#151110",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

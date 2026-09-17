@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" ry="112" fill="#151110"/>
+  <!-- Three milestone marks, ascending -->
+  <rect x="96" y="304" width="72" height="112" fill="#89A796"/>
+  <rect x="220" y="232" width="72" height="184" fill="#89A796"/>
+  <rect x="344" y="136" width="72" height="280" fill="#C79B4D"/>
+  <!-- Hairline baseline -->
+  <rect x="72" y="416" width="368" height="4" fill="#372D28"/>
+</svg>

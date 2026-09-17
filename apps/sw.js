@@ -2,7 +2,7 @@
 // Caches the launcher shell for offline use.
 // Individual apps manage their own service workers.
 
-const CACHE_NAME = 'app-launcher-v5';
+const CACHE_NAME = 'app-launcher-v6';
 
 const LAUNCHER_ASSETS = [
   '/apps/',
