@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Milestones">
+  <meta name="theme-color" content="#151110">
+  <title>Milestones</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+
+      --ground: #151110; --panel: #1C1716; --raise: #241D1A; --line: #372D28;
+      --bone: #EFE6D8; --muted: #9C8E7D; --dim: #6B5E54;
+      --glaze: #89A796; --gold: #C79B4D; --warn: #A85A44;
+      --display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+      --ui: 'Helvetica Neue', Helvetica, Inter, system-ui, -apple-system, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { height: 100%; background: var(--ground); }
+    body {
+      min-height: 100%; min-height: 100dvh;
+      background: var(--ground); color: var(--bone);
+      font-family: var(--ui); font-size: 15px; line-height: 1.45;
+      -webkit-font-smoothing: antialiased; overflow-x: hidden;
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button { background: none; border: 0; cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 1px solid var(--glaze); outline-offset: 2px; }
+    a { color: inherit; }
+
+    #app {
+      max-width: 520px; margin: 0 auto;
+      padding-top: calc(var(--safe-top) + 12px);
+      padding-bottom: calc(var(--safe-bottom) + 28px);
+      padding-left: calc(var(--safe-left) + 16px);
+      padding-right: calc(var(--safe-right) + 16px);
+      display: flex; flex-direction: column; gap: 14px;
+    }
+
+    .top { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 2px 0; }
+    .top h1 { font-family: var(--display); font-weight: 500; font-size: 24px; }
+    .top button { color: var(--muted); font-size: 13px; padding: 6px 0; }
+
+    .eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: 14px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .dimtext { color: var(--dim); font-size: 13px; }
+    .gold { color: var(--gold); }
+
+    /* Standing */
+    .big { font-family: var(--display); font-size: 40px; line-height: 1.1; color: var(--gold); margin: 2px 0 4px; font-variant-numeric: tabular-nums; }
+    .big .u { font-family: var(--ui); font-size: 14px; color: var(--muted); margin-left: 6px; }
+    .next { display: block; width: 100%; text-align: left; color: var(--gold); font-size: 13px; margin-top: 8px; padding: 2px 0; }
+    .next:disabled { cursor: default; }
+
+    .chartwrap { margin-top: 12px; }
+    .charthead { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--muted); }
+    .charthead b { font-weight: 500; color: var(--bone); font-variant-numeric: tabular-nums; }
+    .chart { width: 100%; display: block; margin-top: 4px; }
+    .chartfoot { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+    .weighin { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+    .weighin .row { display: flex; gap: 6px; margin-top: 6px; align-items: stretch; }
+    .field { flex: 1; display: flex; align-items: center; border: 1px solid var(--line); border-radius: 2px; background: var(--ground); padding: 0 10px; min-width: 0; }
+    .field input { flex: 1; min-width: 0; background: none; border: 0; padding: 9px 0; outline: none; font-variant-numeric: tabular-nums; }
+    .field input[type="date"] { color: var(--bone); -webkit-appearance: none; appearance: none; }
+    .field input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+    .field .unit { color: var(--muted); font-size: 13px; margin-left: 6px; }
+    .btn { border: 1px solid var(--glaze); color: var(--glaze); border-radius: 2px; padding: 8px 12px; font-size: 13px; white-space: nowrap; }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn.quiet { border-color: var(--line); color: var(--muted); }
+    .btn.gold { border-color: var(--gold); color: var(--gold); }
+    .btn.fill { background: var(--glaze); color: var(--ground); border-color: var(--glaze); }
+    .weighin .note { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; gap: 10px; }
+    .weighin .note .dimtext { font-size: 12px; }
+    .weighin .note button { color: var(--dim); font-size: 12px; padding: 2px 0; }
+
+    /* Tiers */
+    .tier { display: flex; flex-direction: column; gap: 8px; }
+    .tier .hd { display: flex; justify-content: space-between; align-items: baseline; padding: 0 2px; }
+    .tier .hd span { color: var(--muted); font-size: 12px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { border: 1px solid var(--line); border-radius: 2px; padding: 6px 8px; min-width: 66px; max-width: 112px; text-align: center; color: var(--dim); }
+    .chip b { display: block; font-family: var(--display); font-weight: 500; font-size: 15px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .chip small { display: block; font-size: 10px; line-height: 1.3; min-height: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chip.earned { border-color: rgba(199, 155, 77, 0.55); color: var(--bone); }
+    .chip.earned small { color: var(--gold); }
+    .chip.claimed { border-color: var(--gold); background: var(--raise); color: var(--bone); }
+    .chip.claimed small { color: var(--muted); }
+    .chip:disabled { cursor: default; }
+
+    /* Wishlist */
+    .items { display: flex; flex-direction: column; margin-top: 4px; }
+    .item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+    .item:last-child { border-bottom: 0; }
+    .item .n { min-width: 0; }
+    .item .n a, .item .n .plain { display: inline; text-decoration: none; border-bottom: 1px solid var(--line); word-break: break-word; }
+    .item .n .plain { border-bottom: 0; }
+    .item .p { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .item .r { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .band { border: 1px solid rgba(199, 155, 77, 0.55); color: var(--gold); font-size: 10px; padding: 2px 6px; border-radius: 2px; white-space: nowrap; }
+    .x { color: var(--dim); font-size: 18px; line-height: 1; padding: 4px 6px; }
+    .empty { color: var(--dim); font-size: 13px; padding: 8px 2px; }
+
+    .add { margin-top: 10px; }
+    .add .row { display: flex; gap: 6px; }
+    .receipt { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .receipt button { color: var(--glaze); font-size: 12px; padding: 2px 0; }
+    .review { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+    .review .hint { font-size: 12px; color: var(--muted); }
+    .review .hint.warn { color: var(--warn); }
+    .review .live { font-size: 12px; color: var(--gold); min-height: 16px; }
+    .review .actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .spent { margin-top: 10px; font-size: 12px; color: var(--dim); text-align: right; font-variant-numeric: tabular-nums; }
+
+    .closing { color: var(--dim); font-size: 12px; text-align: center; padding: 4px 8px 0; }
+
+    /* Sheets */
+    .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); z-index: 50; }
+    .sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 51;
+      background: var(--panel); border-top: 1px solid var(--line);
+      padding: 14px 16px calc(var(--safe-bottom) + 18px);
+      max-height: 85dvh; overflow-y: auto;
+      max-width: 520px; margin: 0 auto;
+    }
+    .sheet h2 { font-family: var(--display); font-weight: 500; font-size: 20px; }
+    .sheet .sub { font-size: 13px; margin-top: 2px; }
+    .sheet .list { margin-top: 10px; display: flex; flex-direction: column; }
+    .sheet .list button { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; padding: 11px 2px; border-bottom: 1px solid var(--line); }
+    .sheet .list button:last-child { border-bottom: 0; }
+    .sheet .list button span { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .sheet .close { margin-top: 12px; width: 100%; }
+
+    .settings { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+    .settings label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+    .settings .field { padding: 0 10px; }
+    .settings select { background: var(--ground); border: 1px solid var(--line); border-radius: 2px; padding: 9px 10px; color: var(--bone); }
+    .settings .two { display: flex; gap: 8px; }
+    .settings .two label { flex: 1; }
+    .settings .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .settings .help { font-size: 12px; color: var(--dim); }
+    .settings .status { font-size: 12px; color: var(--glaze); min-height: 16px; }
+
+    [hidden] { display: none !important; }
+    @media (prefers-reduced-motion: no-preference) {
+      .sheet { animation: rise 160ms ease-out; }
+      @keyframes rise { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="top">
+      <h1>Milestones</h1>
+      <button id="openSettings" type="button">Settings</button>
+    </div>
+
+    <!-- Standing card -->
+    <section class="card" id="standing">
+      <div class="eyebrow">Down so far</div>
+      <div class="big"><span id="lossNum">0.0</span><span class="u" id="lossUnit">lb</span></div>
+      <div class="muted" id="standingSub"></div>
+      <button class="next" id="nextLine" type="button"></button>
+
+      <div class="chartwrap" id="chartwrap" hidden>
+        <div class="charthead"><span>Weigh-ins</span><b id="chartDelta"></b></div>
+        <svg class="chart" id="chart" viewBox="0 0 320 88" preserveAspectRatio="none" aria-label="Weight trend"></svg>
+        <div class="chartfoot"><span id="footFirst"></span><span id="footMid">7-entry average</span><span id="footLast">Today</span></div>
+      </div>
+      <div class="dimtext" id="chartEmpty">Two weigh-ins and a trend line shows up here.</div>
+
+      <div class="weighin">
+        <div class="eyebrow">Morning weigh-in</div>
+        <div class="row">
+          <div class="field" style="flex:1.2"><input id="wDate" type="date" aria-label="Weigh-in date"></div>
+          <div class="field"><input id="wVal" type="number" inputmode="decimal" step="0.1" min="0" placeholder="0.0" aria-label="Weight"><span class="unit" id="wUnit">lb</span></div>
+          <button class="btn" id="wLog" type="button">Log</button>
+        </div>
+        <div class="note">
+          <span class="dimtext">Same time of day, before eating, so the numbers compare.</span>
+          <button id="wClear" type="button" hidden>Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tiers -->
+    <div id="tiers" style="display:flex;flex-direction:column;gap:14px"></div>
+
+    <!-- Wishlist -->
+    <section class="card" id="wishlistCard">
+      <div class="eyebrow">Wishlist</div>
+      <div class="items" id="items"></div>
+      <div class="add">
+        <div class="row">
+          <div class="field"><input id="addUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" placeholder="Paste a product link, or type a name" aria-label="Product link or name"></div>
+          <button class="btn" id="lookup" type="button">Look up</button>
+        </div>
+        <div class="receipt" id="receipt" hidden><span id="receiptText"></span><button id="receiptFix" type="button">Fix</button></div>
+        <div class="review" id="review" hidden>
+          <div class="hint" id="reviewHint"></div>
+          <div class="field"><input id="rName" type="text" placeholder="Item name" aria-label="Item name"></div>
+          <div class="field"><input id="rPrice" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Price" aria-label="Price"></div>
+          <div class="live" id="rLive"></div>
+          <div class="actions">
+            <button class="btn quiet" id="rCancel" type="button">Cancel</button>
+            <button class="btn fill" id="rAdd" type="button">Add to list</button>
+          </div>
+        </div>
+      </div>
+      <div class="spent" id="spent" hidden></div>
+    </section>
+
+    <div class="closing">Rewards ratchet. Once a milestone is earned it stays earned, even if the scale bounces back up.</div>
+  </div>
+
+  <!-- Claim sheet -->
+  <div id="claimScrim" class="scrim" hidden></div>
+  <div id="claimSheet" class="sheet" hidden role="dialog" aria-labelledby="claimTitle">
+    <h2 id="claimTitle">Pick your reward</h2>
+    <div class="sub gold" id="claimBand"></div>
+    <div class="list" id="claimList"></div>
+    <button class="btn quiet close" id="claimClose" type="button">Not now</button>
+  </div>
+
+  <!-- Settings sheet -->
+  <div id="setScrim" class="scrim" hidden></div>
+  <div id="setSheet" class="sheet" hidden role="dialog" aria-labelledby="setTitle">
+    <h2 id="setTitle">Settings</h2>
+    <div class="sub muted" id="setIntro" hidden>Set where you're starting and where you're headed. Both can be skipped and filled in later.</div>
+    <div class="settings">
+      <div class="two">
+        <label>Start weight<div class="field"><input id="sStart" type="number" inputmode="decimal" step="0.1" min="0" placeholder="e.g. 165"></div></label>
+        <label>Target weight<div class="field"><input id="sTarget" type="number" inputmode="decimal" step="0.1" min="0" placeholder="e.g. 125"></div></label>
+      </div>
+      <label>Unit<select id="sUnit"><option value="lb">lb</option><option value="kg">kg</option></select></label>
+      <div class="help">Milestones count every 3, 5 and 10 in whichever unit you pick. Changing the unit never converts logged weights.</div>
+      <label>Gemini API key<div class="field"><input id="sKey" type="password" autocomplete="off" placeholder="Optional"></div></label>
+      <div class="help" id="keyHelp"></div>
+      <div class="actions">
+        <button class="btn" id="sExport" type="button">Export backup</button>
+        <button class="btn quiet" id="sImport" type="button">Import backup</button>
+        <input id="sFile" type="file" accept="application/json,.json" hidden>
+      </div>
+      <div class="status" id="sStatus"></div>
+      <div class="help">Everything lives on this device. Export now and then; a backup is one file.</div>
+    </div>
+    <button class="btn fill close" id="setDone" type="button">Done</button>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    // ── Persistence ─────────────────────────────────────────────────────────
+    // One JSON blob in localStorage, mirrored to IndexedDB. iOS can evict
+    // localStorage for installed PWAs under storage pressure; on load the
+    // copy with more weigh-ins wins.
+    const LS_KEY = 'milestonesState';
+    const IDB_NAME = 'milestones', IDB_STORE = 'kv', IDB_KEY = 'state';
+    const DIET_KEY = 'dietTrackerApiKey';
+
+    const openIDB = () => new Promise((resolve, reject) => {
+      try {
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      } catch (e) { reject(e); }
+    });
+    const idbGet = () => openIDB().then(db => new Promise((resolve, reject) => {
+      const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(IDB_KEY);
+      req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error);
+    }));
+    const idbPut = (value) => openIDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, IDB_KEY);
+      tx.oncomplete = () => resolve(true); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+    }));
+
+    const lsGet = (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } };
+    const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* in-memory only */ } };
+
+    const blank = () => ({ unit: 'lb', startWeight: null, targetWeight: null, weights: {}, wishlist: [], claims: {}, apiKey: '', setupDone: false });
+    const normalize = (s) => {
+      const b = blank();
+      if (!s || typeof s !== 'object') return b;
+      const out = { ...b, ...s };
+      out.unit = out.unit === 'kg' ? 'kg' : 'lb';
+      out.startWeight = typeof out.startWeight === 'number' && isFinite(out.startWeight) ? out.startWeight : null;
+      out.targetWeight = typeof out.targetWeight === 'number' && isFinite(out.targetWeight) ? out.targetWeight : null;
+      out.weights = (out.weights && typeof out.weights === 'object') ? out.weights : {};
+      out.wishlist = Array.isArray(out.wishlist) ? out.wishlist.filter(i => i && typeof i.id === 'string') : [];
+      out.claims = (out.claims && typeof out.claims === 'object') ? out.claims : {};
+      out.apiKey = typeof out.apiKey === 'string' ? out.apiKey : '';
+      out.setupDone = !!out.setupDone;
+      return out;
+    };
+
+    let state = blank();
+    let saveTimer = null;
+    const save = () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        lsSet(LS_KEY, state);
+        idbPut(state).catch(() => {});
+      }, 600);
+    };
+    const flushSave = () => { clearTimeout(saveTimer); lsSet(LS_KEY, state); idbPut(state).catch(() => {}); };
+    window.addEventListener('pagehide', flushSave);
+
+    async function load() {
+      const a = normalize(lsGet(LS_KEY));
+      let b = null;
+      try { b = normalize(await idbGet()); } catch { b = null; }
+      const count = s => s ? Object.keys(s.weights).length + s.wishlist.length : -1;
+      state = (b && count(b) > count(a)) ? b : a;
+      try { if (navigator.storage?.persist) await navigator.storage.persist(); } catch { /* ignore */ }
+    }
+
+    // ── Dates ───────────────────────────────────────────────────────────────
+    const pad = n => String(n).padStart(2, '0');
+    const localDate = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+    const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 86400000);
+    const shortDate = s => parseDate(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+    // ── Measurement ────────────────────────────────────────────────────────
+    const entriesOf = weights => Object.keys(weights).sort().map(d => ({ d, w: weights[d] }));
+    const trailingAvg = entries => entries.map((p, i) => {
+      const win = entries.slice(Math.max(0, i - 6), i + 1);
+      return { d: p.d, w: win.reduce((s, q) => s + q.w, 0) / win.length };
+    });
+    function measure(s) {
+      const entries = entriesOf(s.weights);
+      const avg = trailingAvg(entries);
+      const bestAvg = avg.length ? Math.min(...avg.map(a => a.w)) : null;
+      const start = typeof s.startWeight === 'number' ? s.startWeight : (entries[0]?.w ?? null);
+      const loss = (start != null && bestAvg != null) ? Math.max(0, start - bestAvg) : 0;
+      return { entries, avg, bestAvg, start, loss };
+    }
+
+    // ── Tiers ──────────────────────────────────────────────────────────────
+    const TIERS = [
+      { id: 's', step: 3,  label: 'Every 3',  band: 'Under $50',   fits: p => p < 50 },
+      { id: 'm', step: 5,  label: 'Every 5',  band: 'Under $150',  fits: p => p < 150 },
+      { id: 'l', step: 10, label: 'Every 10', band: '$150 and up', fits: p => p >= 150 },
+    ];
+    const spanOf = s => (typeof s.startWeight === 'number' && typeof s.targetWeight === 'number') ? s.startWeight - s.targetWeight : 30;
+    const tierMax = (tier, span) => Math.max(1, Math.floor(span / tier.step));
+    const earnedCount = (tier, loss, span) => Math.min(Math.floor(loss / tier.step), tierMax(tier, span));
+    function nextMilestone(loss, span) {
+      let best = null;
+      for (const t of TIERS) {
+        const n = Math.floor(loss / t.step) + 1;
+        if (n > tierMax(t, span)) continue;
+        const away = n * t.step - loss;
+        if (!best || away < best.away) best = { tier: t, n, away, amount: n * t.step };
+      }
+      return best;
+    }
+    const bandOf = price => TIERS.find(t => t.fits(price)) || TIERS[TIERS.length - 1];
+    const money = p => '$' + Number(p).toFixed(2);
+    const one = n => (Math.round(n * 10) / 10).toFixed(1);
+
+    // ── DOM ────────────────────────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+    let claimTarget = null;      // { tier, key }
+    let pendingItem = null;      // last item added via verified lookup (for Fix)
+    let reviewDraft = null;      // { name, price, url, hint, warn }
+
+    function render() {
+      const s = state;
+      const m = measure(s);
+      const span = spanOf(s);
+      const unit = s.unit;
+
+      // Standing
+      $('lossNum').textContent = one(m.loss);
+      $('lossUnit').textContent = unit;
+      $('wUnit').textContent = unit;
+      const subParts = [];
+      if (m.entries.length) {
+        subParts.push('Best 7-entry average');
+        if (typeof s.targetWeight === 'number' && m.bestAvg != null) {
+          const remain = m.bestAvg - s.targetWeight;
+          subParts.push(remain > 0 ? `${one(remain)} ${unit} to target` : "You've reached your target");
+        }
+      }
+      $('standingSub').textContent = subParts.join(' · ');
+
+      const earnedUnclaimed = TIERS.some(t => {
+        const n = earnedCount(t, m.loss, span);
+        for (let i = 1; i <= n; i++) if (!s.claims[`${t.id}-${i}`]) return true;
+        return false;
+      });
+      const next = nextMilestone(m.loss, span);
+      const nextBtn = $('nextLine');
+      if (!m.entries.length) { nextBtn.textContent = 'Log a few weigh-ins and this starts moving.'; nextBtn.disabled = true; }
+      else if (earnedUnclaimed) { nextBtn.textContent = 'A reward is waiting to be claimed'; nextBtn.disabled = false; }
+      else if (next) { nextBtn.textContent = `${one(next.away)} ${unit} to your next reward · ${next.tier.band}`; nextBtn.disabled = false; }
+      else { nextBtn.textContent = 'Every milestone to target is earned.'; nextBtn.disabled = true; }
+
+      renderChart(m, unit);
+
+      // Weigh-in field reflects the selected date
+      const d = $('wDate').value || localDate();
+      const has = Object.prototype.hasOwnProperty.call(s.weights, d);
+      $('wClear').hidden = !has;
+      if (document.activeElement !== $('wVal')) $('wVal').value = has ? one(s.weights[d]) : '';
+
+      // Tiers
+      const tiers = $('tiers');
+      tiers.replaceChildren();
+      for (const t of TIERS) {
+        const sec = el('section', 'tier');
+        const hd = el('div', 'hd');
+        hd.append(el('div', 'eyebrow', `${t.label} ${unit}`), el('span', null, t.band));
+        const chips = el('div', 'chips');
+        const max = tierMax(t, span), earned = earnedCount(t, m.loss, span);
+        for (let n = 1; n <= max; n++) {
+          const key = `${t.id}-${n}`;
+          const claimedId = s.claims[key];
+          const item = claimedId ? s.wishlist.find(i => i.id === claimedId) : null;
+          const chip = el('button', 'chip'); chip.type = 'button';
+          chip.append(el('b', null, `${n * t.step} ${unit}`));
+          if (item) {
+            chip.classList.add('claimed'); chip.append(el('small', null, item.name));
+            chip.setAttribute('aria-label', `${n * t.step} ${unit}, claimed for ${item.name}. Tap to unclaim.`);
+            chip.addEventListener('click', () => { delete s.claims[key]; save(); render(); });
+          } else if (n <= earned) {
+            chip.classList.add('earned'); chip.append(el('small', null, 'Claim'));
+            chip.addEventListener('click', () => openClaim(t, key));
+          } else {
+            chip.disabled = true; chip.append(el('small', null, ''));
+          }
+          chips.append(chip);
+        }
+        sec.append(hd, chips);
+        tiers.append(sec);
+      }
+
+      // Wishlist
+      const items = $('items');
+      items.replaceChildren();
+      const claimedIds = new Set(Object.values(s.claims));
+      const sorted = [...s.wishlist].sort((a, b) => (bandOf(a.price).step - bandOf(b.price).step) || (a.price - b.price));
+      if (!sorted.length) items.append(el('div', 'empty', 'Nothing here yet. Paste a link below when you want something.'));
+      for (const it of sorted) {
+        const row = el('div', 'item');
+        const n = el('div', 'n');
+        if (it.url) { const a = el('a', null, it.name + ' ↗'); a.href = it.url; a.target = '_blank'; a.rel = 'noopener'; n.append(a); }
+        else n.append(el('span', 'plain', it.name));
+        const p = el('div', 'p', money(it.price));
+        if (claimedIds.has(it.id)) { const g = el('span', 'gold', ' · earned'); p.append(g); }
+        n.append(p);
+        const r = el('div', 'r');
+        r.append(el('span', 'band', `${bandOf(it.price).step} ${unit}`));
+        const x = el('button', 'x', '×'); x.type = 'button'; x.setAttribute('aria-label', `Remove ${it.name}`);
+        x.addEventListener('click', () => {
+          if (!confirm(`Remove ${it.name} from the list?`)) return;
+          s.wishlist = s.wishlist.filter(i => i.id !== it.id);
+          for (const k of Object.keys(s.claims)) if (s.claims[k] === it.id) delete s.claims[k];
+          if (pendingItem && pendingItem.id === it.id) { pendingItem = null; $('receipt').hidden = true; }
+          save(); render();
+        });
+        r.append(x);
+        row.append(n, r);
+        items.append(row);
+      }
+      const spent = s.wishlist.filter(i => claimedIds.has(i.id)).reduce((a, i) => a + i.price, 0);
+      $('spent').hidden = !claimedIds.size;
+      $('spent').textContent = claimedIds.size ? `Claimed so far · ${money(spent)}` : '';
+
+      // Settings key help
+      const dietKey = lsGet(DIET_KEY);
+      $('keyHelp').textContent = s.apiKey ? 'Using the key above for product lookup.'
+        : (typeof dietKey === 'string' && dietKey ? "Using the key saved in Diet Tracker. Add one here to override it." : 'Product lookup needs a Gemini key. Without one, add items by typing the name and price.');
+    }
+
+    function renderChart(m, unit) {
+      const wrap = $('chartwrap'), empty = $('chartEmpty');
+      if (m.entries.length < 2) { wrap.hidden = true; empty.hidden = false; return; }
+      wrap.hidden = false; empty.hidden = true;
+      const svg = $('chart');
+      svg.replaceChildren();
+      const W = 320, H = 88, top = 6, bottom = 8, left = 4, right = 4;
+      const first = m.entries[0].d, today = localDate();
+      const spanDays = Math.max(1, daysBetween(first, today));
+      const ws = m.entries.map(e => e.w);
+      let lo = Math.min(...ws), hi = Math.max(...ws);
+      const pad = Math.max(0.5, (hi - lo) * 0.15); lo -= pad; hi += pad;
+      const x = d => left + (Math.min(Math.max(daysBetween(first, d), 0), spanDays) / spanDays) * (W - left - right);
+      const y = w => top + (1 - (w - lo) / (hi - lo)) * (H - top - bottom);
+      const ns = 'http://www.w3.org/2000/svg';
+      for (const e of m.entries) {
+        const c = document.createElementNS(ns, 'circle');
+        c.setAttribute('cx', x(e.d).toFixed(1)); c.setAttribute('cy', y(e.w).toFixed(1)); c.setAttribute('r', '1.8'); c.setAttribute('fill', '#6B5E54');
+        svg.append(c);
+      }
+      const line = document.createElementNS(ns, 'polyline');
+      line.setAttribute('points', m.avg.map(a => `${x(a.d).toFixed(1)},${y(a.w).toFixed(1)}`).join(' '));
+      line.setAttribute('fill', 'none'); line.setAttribute('stroke', '#89A796'); line.setAttribute('stroke-width', '1.6'); line.setAttribute('stroke-linejoin', 'round'); line.setAttribute('vector-effect', 'non-scaling-stroke');
+      svg.append(line);
+      const last = m.avg[m.avg.length - 1];
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', x(last.d).toFixed(1)); dot.setAttribute('cy', y(last.w).toFixed(1)); dot.setAttribute('r', '2.6'); dot.setAttribute('fill', '#89A796');
+      svg.append(dot);
+      const delta = m.entries[m.entries.length - 1].w - m.entries[0].w;
+      $('chartDelta').textContent = `${delta < 0 ? '−' : delta > 0 ? '+' : ''}${one(Math.abs(delta))} ${unit}`;
+      $('footFirst').textContent = shortDate(first);
+    }
+
+    // ── Weigh-in ───────────────────────────────────────────────────────────
+    function commitWeight() {
+      const d = $('wDate').value || localDate();
+      const raw = $('wVal').value.trim();
+      if (!raw) return;
+      const v = Math.round(parseFloat(raw) * 10) / 10;
+      if (!isFinite(v) || v <= 0) return;
+      state.weights[d] = v;
+      save(); render();
+    }
+    $('wLog').addEventListener('click', () => { commitWeight(); $('wVal').blur(); });
+    $('wVal').addEventListener('keydown', e => { if (e.key === 'Enter') { commitWeight(); $('wVal').blur(); } });
+    $('wVal').addEventListener('blur', commitWeight);
+    $('wDate').addEventListener('change', () => { if (!$('wDate').value) $('wDate').value = localDate(); render(); });
+    $('wClear').addEventListener('click', () => {
+      const d = $('wDate').value || localDate();
+      delete state.weights[d]; $('wVal').value = '';
+      save(); render();
+    });
+    $('nextLine').addEventListener('click', () => $('tiers').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+
+    // ── Claim sheet ────────────────────────────────────────────────────────
+    function openClaim(tier, key) {
+      claimTarget = { tier, key };
+      $('claimBand').textContent = tier.band;
+      const list = $('claimList');
+      list.replaceChildren();
+      const claimedIds = new Set(Object.values(state.claims));
+      const options = state.wishlist.filter(i => !claimedIds.has(i.id) && tier.fits(i.price)).sort((a, b) => a.price - b.price);
+      if (!options.length) list.append(el('div', 'empty', 'Nothing on your list in this band yet.'));
+      for (const it of options) {
+        const b = el('button'); b.type = 'button';
+        b.append(el('span', null, it.name), el('span', null, money(it.price)));
+        b.firstChild.style.color = 'var(--bone)';
+        b.addEventListener('click', () => { state.claims[key] = it.id; closeClaim(); save(); render(); });
+        list.append(b);
+      }
+      $('claimScrim').hidden = false; $('claimSheet').hidden = false;
+    }
+    function closeClaim() { claimTarget = null; $('claimScrim').hidden = true; $('claimSheet').hidden = true; }
+    $('claimClose').addEventListener('click', closeClaim);
+    $('claimScrim').addEventListener('click', closeClaim);
+
+    // ── Product lookup ─────────────────────────────────────────────────────
+    const activeKey = () => state.apiKey || (typeof lsGet(DIET_KEY) === 'string' ? lsGet(DIET_KEY) : '');
+
+    const asUrl = (text) => {
+      const t = text.trim();
+      if (!t || /\s/.test(t)) return null;
+      const candidate = /^https?:\/\//i.test(t) ? t : (/^[\w-]+(\.[\w-]+)+/.test(t) ? 'https://' + t : null);
+      if (!candidate) return null;
+      try { const u = new URL(candidate); return u.hostname.includes('.') ? u.href : null; } catch { return null; }
+    };
+    const nameFromUrl = (href) => {
+      try {
+        const u = new URL(href);
+        const segs = u.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+        let seg = segs.reverse().find(x => /[a-z]/i.test(x) && !/^\d+$/.test(x)) || u.hostname.replace(/^www\./, '');
+        seg = seg.replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[-_+]+/g, ' ').replace(/\s+/g, ' ').trim();
+        return seg.replace(/\b\w/g, c => c.toUpperCase());
+      } catch { return ''; }
+    };
+
+    const PROMPT = (url) => `Find the product name and the current price for this page: ${url}
+
+Rules for the price:
+- Report the price exactly as the store displays it, in the store's own currency. Do not convert.
+- It must appear verbatim in a search result you actually saw for THIS product.
+- Never estimate, average, or carry a number over from a similar product.
+- A price range on a category page ("$80-$100") is not a price. Neither is a resale listing.
+- If you did not see an exact figure for this product, price must be null. Null is the correct, expected answer whenever the page price is not in your results.
+
+Reply with ONLY a JSON object, no markdown and no other words:
+{"name": "product name", "price": 49.9, "quote": "the exact text you saw containing that price"}
+Leave quote as an empty string when price is null.`;
+
+    // Every number in the quote, tolerating thousands separators ("1,299.00")
+    // and decimal commas ("89,90"). The quote has to contain the price itself.
+    const quotedNumbers = (quote) => (quote.match(/\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:[.,]\d{1,2})?/g) || [])
+      .map(n => /^\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(n) ? parseFloat(n.replace(/,/g, '')) : parseFloat(n.replace(',', '.')))
+      .filter(isFinite);
+
+    async function fetchProduct(url) {
+      const key = activeKey();
+      if (!key) throw new Error('no-key');
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: PROMPT(url) }] }],
+          tools: [{ google_search: {} }],
+          generationConfig: { temperature: 0 },
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message || 'lookup failed');
+      const text = (data.candidates?.[0]?.content?.parts || []).filter(p => typeof p.text === 'string').map(p => p.text).join('\n');
+      const blocks = text.replace(/```json|```/g, '').match(/\{[^{}]*\}/g);
+      if (!blocks) throw new Error('no-json');
+      const parsed = JSON.parse(blocks[blocks.length - 1]);
+      const name = typeof parsed.name === 'string' ? parsed.name.trim() : '';
+      const price = typeof parsed.price === 'number' && isFinite(parsed.price) ? Math.round(parsed.price * 100) / 100 : null;
+      const quote = typeof parsed.quote === 'string' ? parsed.quote : '';
+      const verified = price != null && quotedNumbers(quote).some(n => Math.abs(n - price) < 0.011);
+      return { name, price, verified };
+    }
+
+    function addItem({ name, price, url }) {
+      const item = { id: 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, price, url: url || '', addedAt: localDate() };
+      state.wishlist.push(item);
+      save(); render();
+      return item;
+    }
+
+    function openReview(draft) {
+      reviewDraft = draft;
+      $('receipt').hidden = true;
+      $('review').hidden = false;
+      const hint = $('reviewHint');
+      hint.textContent = draft.hint || '';
+      hint.classList.toggle('warn', !!draft.warn);
+      hint.hidden = !draft.hint;
+      $('rName').value = draft.name || '';
+      $('rPrice').value = draft.price != null ? draft.price : '';
+      updateLive();
+      (draft.name ? $('rPrice') : $('rName')).focus();
+    }
+    function closeReview() { reviewDraft = null; $('review').hidden = true; }
+    function updateLive() {
+      const p = parseFloat($('rPrice').value);
+      $('rLive').textContent = isFinite(p) && p >= 0 ? `${bandOf(p).step} ${state.unit} band · ${bandOf(p).band}` : '';
+    }
+    $('rPrice').addEventListener('input', updateLive);
+    $('rCancel').addEventListener('click', closeReview);
+    function submitReview() {
+      const name = $('rName').value.trim();
+      const price = Math.round(parseFloat($('rPrice').value) * 100) / 100;
+      if (!name) { $('rName').focus(); return; }
+      if (!isFinite(price) || price < 0) { $('rPrice').focus(); return; }
+      addItem({ name, price, url: reviewDraft?.url || '' });
+      closeReview();
+      $('addUrl').value = '';
+    }
+    $('rAdd').addEventListener('click', submitReview);
+    $('rPrice').addEventListener('keydown', e => { if (e.key === 'Enter') submitReview(); });
+    $('rName').addEventListener('keydown', e => { if (e.key === 'Enter') submitReview(); });
+
+    async function lookup() {
+      const input = $('addUrl').value.trim();
+      if (!input) return;
+      const url = asUrl(input);
+      closeReview(); $('receipt').hidden = true;
+      if (!url) { openReview({ name: input, price: null, url: '', hint: '' }); return; }
+
+      const btn = $('lookup');
+      btn.disabled = true; btn.textContent = 'Looking…';
+      try {
+        const r = await fetchProduct(url);
+        if (r.name && r.verified) {
+          pendingItem = addItem({ name: r.name, price: r.price, url });
+          $('receiptText').textContent = `Added ${r.name} · ${money(r.price)} · ${bandOf(r.price).step} ${state.unit}`;
+          $('receipt').hidden = false;
+          $('addUrl').value = '';
+        } else {
+          const name = r.name || nameFromUrl(url);
+          const hint = r.price != null && !r.verified
+            ? `Search guessed ${money(r.price)} but couldn't back it up. Check the real one and type it in.`
+            : "Couldn't confirm a price. Check the page and type it in.";
+          openReview({ name, price: null, url, hint, warn: r.price != null });
+        }
+      } catch (e) {
+        const hint = e.message === 'no-key'
+          ? 'No Gemini key set, so the name comes from the link. Type the price from the page.'
+          : 'Lookup didn\'t go through. The name comes from the link; type the price from the page.';
+        openReview({ name: nameFromUrl(url), price: null, url, hint });
+      } finally {
+        btn.disabled = false; btn.textContent = 'Look up';
+      }
+    }
+    $('lookup').addEventListener('click', lookup);
+    $('addUrl').addEventListener('keydown', e => { if (e.key === 'Enter') lookup(); });
+    $('receiptFix').addEventListener('click', () => {
+      if (!pendingItem) return;
+      const it = pendingItem; pendingItem = null;
+      state.wishlist = state.wishlist.filter(i => i.id !== it.id);
+      for (const k of Object.keys(state.claims)) if (state.claims[k] === it.id) delete state.claims[k];
+      save(); render();
+      openReview({ name: it.name, price: it.price, url: it.url, hint: '' });
+    });
+
+    // ── Settings ───────────────────────────────────────────────────────────
+    function openSettings(firstRun) {
+      $('setIntro').hidden = !firstRun;
+      $('sStart').value = state.startWeight ?? '';
+      $('sTarget').value = state.targetWeight ?? '';
+      $('sUnit').value = state.unit;
+      $('sKey').value = state.apiKey;
+      $('sStatus').textContent = '';
+      $('setScrim').hidden = false; $('setSheet').hidden = false;
+      if (firstRun) $('sStart').focus();
+    }
+    function closeSettings() {
+      const st = parseFloat($('sStart').value), tg = parseFloat($('sTarget').value);
+      state.startWeight = isFinite(st) && st > 0 ? Math.round(st * 10) / 10 : null;
+      state.targetWeight = isFinite(tg) && tg > 0 ? Math.round(tg * 10) / 10 : null;
+      state.unit = $('sUnit').value === 'kg' ? 'kg' : 'lb';
+      state.apiKey = $('sKey').value.trim();
+      state.setupDone = true;
+      $('setScrim').hidden = true; $('setSheet').hidden = true;
+      save(); render();
+    }
+    $('openSettings').addEventListener('click', () => openSettings(false));
+    $('setDone').addEventListener('click', closeSettings);
+    $('setScrim').addEventListener('click', closeSettings);
+
+    $('sExport').addEventListener('click', () => {
+      flushSave();
+      const { apiKey, ...rest } = state;
+      const blob = new Blob([JSON.stringify(rest, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `milestones-${localDate()}.json`;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      $('sStatus').textContent = 'Backup saved. The API key is left out of it.';
+    });
+    $('sImport').addEventListener('click', () => $('sFile').click());
+    $('sFile').addEventListener('change', async () => {
+      const f = $('sFile').files[0]; $('sFile').value = '';
+      if (!f) return;
+      try {
+        const parsed = JSON.parse(await f.text());
+        if (!parsed || typeof parsed !== 'object' || !parsed.weights) throw new Error('shape');
+        const n = Object.keys(parsed.weights).length;
+        if (!confirm(`Replace what's on this device with the backup (${n} weigh-in${n === 1 ? '' : 's'})?`)) return;
+        const key = state.apiKey;
+        state = normalize({ ...parsed, apiKey: key, setupDone: true });
+        flushSave(); openSettings(false); render();
+        $('sStatus').textContent = 'Backup restored.';
+      } catch {
+        $('sStatus').textContent = "That file isn't a Milestones backup.";
+      }
+    });
+
+    // ── Boot ───────────────────────────────────────────────────────────────
+    (async () => {
+      await load();
+      $('wDate').value = localDate();
+      $('wDate').max = localDate();
+      render();
+      if (!state.setupDone && !Object.keys(state.weights).length) openSettings(true);
+    })();
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+          .then(reg => { reg.update().catch(() => {}); })
+          .catch(() => {});
+      });
+    }
+  })();
+  </script>
+</body>
+</html>
