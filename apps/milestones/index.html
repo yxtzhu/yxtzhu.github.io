@@ -106,7 +106,7 @@
     .item .n .plain { border-bottom: 0; }
     .item .p { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 2px; }
     .item .r { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-    .star { color: var(--gold); font-size: 14px; line-height: 1; }
+    .band.target { border-color: var(--gold); background: var(--raise); }
     .band { border: 1px solid rgba(199, 155, 77, 0.55); color: var(--gold); font-size: 10px; padding: 2px 6px; border-radius: 2px; white-space: nowrap; }
     .x { color: var(--dim); font-size: 18px; line-height: 1; padding: 4px 6px; }
     .empty { color: var(--dim); font-size: 13px; padding: 8px 2px; }
@@ -504,10 +504,11 @@
         n.append(p);
         const r = el('div', 'r');
         if (typeof s.targetWeight === 'number' && it.id === targetItemId) {
-          const star = el('span', 'star', '★'); star.setAttribute('aria-label', 'Target prize'); star.title = 'Target prize';
-          r.append(star);
+          const t = el('span', 'band target', '★ Target'); t.title = 'Unlocks when you reach your target weight';
+          r.append(t);
+        } else {
+          r.append(el('span', 'band', `${bandOf(it.price).step} ${unit}`));
         }
-        r.append(el('span', 'band', `${bandOf(it.price).step} ${unit}`));
         const x = el('button', 'x', '×'); x.type = 'button'; x.setAttribute('aria-label', `Remove ${it.name}`);
         x.addEventListener('click', () => {
           if (!confirm(`Remove ${it.name} from the list?`)) return;
