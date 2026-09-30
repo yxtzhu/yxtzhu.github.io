@@ -175,7 +175,7 @@
       <div class="chartwrap" id="chartwrap" hidden>
         <div class="charthead"><span>Weigh-ins</span><b id="chartDelta"></b></div>
         <svg class="chart" id="chart" viewBox="0 0 320 88" preserveAspectRatio="none" aria-label="Weight trend"></svg>
-        <div class="chartfoot"><span id="footFirst"></span><span id="footMid">7-entry average</span><span id="footLast">Today</span></div>
+        <div class="chartfoot"><span id="footFirst"></span><span id="footMid">7-day average</span><span id="footLast">Today</span></div>
       </div>
       <div class="dimtext" id="chartEmpty">Two weigh-ins and a trend line shows up here.</div>
 
@@ -336,8 +336,12 @@
 
     // ── Measurement ────────────────────────────────────────────────────────
     const entriesOf = weights => Object.keys(weights).sort().map(d => ({ d, w: weights[d] }));
+    // Average of every entry logged in the 7 calendar days ending on this
+    // one (the day itself plus the six before). A missed day simply isn't in
+    // the window, so the sample shrinks rather than reaching further back.
     const trailingAvg = entries => entries.map((p, i) => {
-      const win = entries.slice(Math.max(0, i - 6), i + 1);
+      const win = [];
+      for (let j = i; j >= 0 && daysBetween(entries[j].d, p.d) <= 6; j--) win.push(entries[j]);
       return { d: p.d, w: win.reduce((s, q) => s + q.w, 0) / win.length };
     });
     function measure(s) {
@@ -398,7 +402,7 @@
       $('wUnit').textContent = unit;
       const subParts = [];
       if (m.entries.length) {
-        subParts.push('Best 7-entry average');
+        subParts.push('Best 7-day average');
         if (typeof s.targetWeight === 'number' && m.bestAvg != null) {
           const remain = m.bestAvg - s.targetWeight;
           subParts.push(remain > 0 ? `${one(remain)} ${unit} to target` : "You've reached your target");
